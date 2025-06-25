@@ -55,8 +55,8 @@ class MONMOSolver:
     def solve(
         self,
         stopping_tol: float = 5 * 1e-4,
-        maxiter: int = 10,
-        max_pb_solved: int = 200,
+        maxiter: int = 100,
+        max_pb_solved: int = 350,
         verbose: bool = True,
     ) -> Tuple[str, Solution]:
         """Solve the problem.
@@ -149,7 +149,8 @@ class MONMOSolver:
                 f"{"-":>12} {"-":>20}",
             )
 
-        known_outer_vertices = []
+        explored_outer_vertices_information = []
+        optimal_outer_vertices = []
 
         # Initialize subproblem
         norm_min_pb = NormMinSubproblem(
@@ -162,21 +163,41 @@ class MONMOSolver:
         total_nm_pbs_solved = 0
         total_nm_pbs_failed = 0
         for iter in range(maxiter):
+            # Remove vertices that do not belong to the set of outer vertices
+            for index in reversed(range(len(explored_outer_vertices_information))):
+                remove_vertex = True
+                vertex = explored_outer_vertices_information[index][0]
+                for outer_vertex in outer_vertices:
+                    if np.linalg.norm(vertex - outer_vertex) <= MIN_DIST_OBJ_VECS:
+                        remove_vertex = False
+                        break
+                vertex = None
+                if remove_vertex:
+                    del explored_outer_vertices_information[index]
+
             # Compute the set of unknown outer vertices
             unknown_outer_vertices = []
             for vertex in outer_vertices:
-                is_a_known_vertex = False
-                for vknown in known_outer_vertices:
-                    if np.linalg.norm(vertex - vknown) <= MIN_DIST_OBJ_VECS:
-                        is_a_known_vertex = True
+                is_an_optimal_vertex = False
+                for voptimal in optimal_outer_vertices:
+                    if np.linalg.norm(vertex - voptimal) <= MIN_DIST_OBJ_VECS:
+                        is_an_optimal_vertex = True
                         break
-                if not is_a_known_vertex:
+                if is_an_optimal_vertex:
+                    continue
+
+                # Check if this vertex has not already been explored
+                explore_vertex = False
+                for vexplored, _, _, _ in explored_outer_vertices_information:
+                    if np.linalg.norm(vertex - vexplored) <= MIN_DIST_OBJ_VECS:
+                        explore_vertex = True
+                        break
+                if not explore_vertex:
                     unknown_outer_vertices.append(vertex)
 
             haussdorf_dist = -np.inf
             nb_subproblems_solved_per_iter = 0
             nb_subproblems_failed_per_iter = 0
-            update_outer_approximation = False
             elapsed_subproblems_per_iter = 0.0
             for vertex in unknown_outer_vertices:
                 v = np.asarray(vertex)
@@ -186,8 +207,9 @@ class MONMOSolver:
                 end_nm_pb_solved = time.perf_counter()
 
                 # If there is a failure, we ignore it and try to compute
-                # the norm inf problem for another vertex
+                # the norm min subproblem for another vertex
                 if status_norm_min != "solved":
+                    optimal_outer_vertices.append(v)
                     nb_subproblems_failed_per_iter += 1
                     total_nm_pbs_failed += 1
                     continue
@@ -197,33 +219,60 @@ class MONMOSolver:
                 nb_subproblems_solved_per_iter += 1
                 total_nm_pbs_solved += 1
 
-                known_outer_vertices.append(v)
+                # Update solution
+                opt_obj_values = norm_min_pb.objective_values()
+                sol.insert_solution(norm_min_pb.solution(), opt_obj_values)
 
                 opt_val = norm_min_pb.value()
-                opt_obj_values = norm_min_pb.objective_values()
-
-                # Update solution
-                sol.insert_solution(norm_min_pb.solution(), opt_obj_values)
-                haussdorf_dist = max(haussdorf_dist, opt_val)
-                if opt_val > scaled_stopping_tol:
-                    update_outer_approximation = True
+                if opt_val <= scaled_stopping_tol:
+                    # Update set of optimal outer vertices
+                    optimal_outer_vertices.append(v)
+                    haussdorf_dist = max(haussdorf_dist, opt_val)
+                else:
+                    # Update information of explored vertices
                     w_opt = norm_min_pb.dual_objective_values()
-                    if Z is None:
-                        outer_approximation.insert_halfspace(
-                            np.asarray(
-                                [-np.dot(opt_obj_values, w_opt)] + w_opt.tolist()
-                            )
-                        )
-                    else:
-                        outer_approximation.insert_halfspace(
-                            np.asarray(
-                                [-np.dot(opt_obj_values, Z.T @ w_opt)]
-                                + (Z.T @ w_opt).tolist()
-                            )
-                        )
+                    explored_outer_vertices_information.append(
+                        (v, opt_obj_values, w_opt, opt_val)
+                    )
 
                 if total_nm_pbs_solved >= max_pb_solved:
                     break
+
+            # Find v in argmax{||z^v|| | ||z^v|| > tol, v in outer_vertices}
+            best_opt_val = -np.inf
+            opt_index = -1
+            for index, (_, _, _, opt_val) in enumerate(
+                explored_outer_vertices_information
+            ):
+                haussdorf_dist = max(haussdorf_dist, opt_val)
+                if opt_val > scaled_stopping_tol and opt_val > best_opt_val:
+                    best_opt_val = opt_val
+                    opt_index = index
+
+            if opt_index >= 0:
+                # Update outer approximation
+                opt_obj_values = explored_outer_vertices_information[opt_index][1]
+                w_opt = explored_outer_vertices_information[opt_index][2]
+                if Z is None:
+                    outer_approximation.insert_halfspace(
+                        np.asarray([-np.dot(opt_obj_values, w_opt)] + w_opt.tolist())
+                    )
+                else:
+                    outer_approximation.insert_halfspace(
+                        np.asarray(
+                            [-np.dot(opt_obj_values, Z.T @ w_opt)]
+                            + (Z.T @ w_opt).tolist()
+                        )
+                    )
+                # Move the corresponding vertex into the set of optimal vertices
+                v = explored_outer_vertices_information[opt_index][0]
+                optimal_outer_vertices.append(v)
+
+                # Remove it from the set of explored vertices
+                opt_obj_values = None
+                w_opt = None
+                v = None
+                del explored_outer_vertices_information[opt_index]
 
             elapsed_total_subproblems += elapsed_subproblems_per_iter
             outer_vertices: np.ndarray = outer_approximation.compute_vertices()
@@ -242,9 +291,6 @@ class MONMOSolver:
             if total_nm_pbs_solved >= max_pb_solved:
                 status = "max_pbs_solved_reached"
                 break
-
-            if update_outer_approximation:
-                continue
 
             if haussdorf_dist <= scaled_stopping_tol:
                 status = "solved"
