@@ -5,15 +5,14 @@ import time
 from mocvxpy.constants import MIN_DIST_OBJ_VECS
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.solvers.solution import OuterApproximation, Solution
-from typing import List, Optional, Tuple, Union
-
 from mocvxpy.solvers.utilities import (
     compute_extreme_objective_vectors,
     compute_extreme_points_hyperplane,
-    extract_variables_from_problem,
     number_of_variables,
     solve_weighted_sum_problem,
 )
+from mocvxpy.subproblems.pascoletti_serafini import PascolettiSerafiniSubproblem
+from typing import List, Optional, Tuple, Union
 
 
 class MOSVSolver:
@@ -86,7 +85,8 @@ class MOSVSolver:
             if verbose:
                 print(
                     "MOVS initialization failure: the algorithm cannot obtain extreme solutions;",
-                    "initialisation phase status returns:", initial_step_status
+                    "initialisation phase status returns:",
+                    initial_step_status,
                 )
             return "no_extreme_solutions", sol
 
@@ -145,6 +145,11 @@ class MOSVSolver:
                 f"{haussdorf_dist:14e}",
             )
 
+        # Initialize subproblem
+        ps_pb = PascolettiSerafiniSubproblem(
+            self._objectives, self._constraints, self._order_cone
+        )
+
         status = "maxiter_reached"
         vertex_selection_solutions = np.array([]).reshape((0, 2 * nobj))
         visited_outer_vertices = np.array([]).reshape((0, nobj))
@@ -200,17 +205,25 @@ class MOSVSolver:
                     status = "vertex_selection_failure"
                     break
 
-                sorted_vertex_solutions_indexes = np.argsort([np.linalg.norm(v[:nobj] - v[nobj:]) for v in vertex_selection_candidates])
-                s = vertex_selection_solutions[sorted_vertex_solutions_indexes[-1]][:nobj]
-                p = vertex_selection_solutions[sorted_vertex_solutions_indexes[-1]][nobj:]
+                sorted_vertex_solutions_indexes = np.argsort(
+                    [
+                        np.linalg.norm(v[:nobj] - v[nobj:])
+                        for v in vertex_selection_candidates
+                    ]
+                )
+                s = vertex_selection_solutions[sorted_vertex_solutions_indexes[-1]][
+                    :nobj
+                ]
+                p = vertex_selection_solutions[sorted_vertex_solutions_indexes[-1]][
+                    nobj:
+                ]
 
             v = s
             c = p - s
+            ps_pb.parameters = np.concatenate((v, c))
 
             start_ps_pb = time.perf_counter()
-            opt_values, z_opt, w_opt, status_ps = self._solve_pascoletti_serafini_pb(
-                v, c
-            )
+            status_ps = ps_pb.solve()
             end_ps_pb = time.perf_counter()
             elapsed_ps_pb = end_ps_pb - start_ps_pb
 
@@ -219,9 +232,11 @@ class MOSVSolver:
                 break
 
             # Update solution
-            sol.insert_solution(opt_values[:nvars], opt_values[nvars:])
+            sol.insert_solution(ps_pb.solution(), ps_pb.objective_values())
             current_inner_vertex_ind = len(sol.objective_values) - 1
 
+            z_opt = ps_pb.value()
+            w_opt = ps_pb.dual_objective_values()
             if Z is None:
                 outer_approximation.insert_halfspace(
                     np.asarray([-z_opt - np.dot(v, w_opt)] + w_opt.tolist())
@@ -240,8 +255,10 @@ class MOSVSolver:
         if verbose:
             print("\nStopping reason:", status)
             print("Resolution time (s):", end_optimization - start_optimization)
-            print("Hausdorff distance between outer and inner approximation of the solution set:",
-                  f"{haussdorf_dist:.5E}")
+            print(
+                "Hausdorff distance between outer and inner approximation of the solution set:",
+                f"{haussdorf_dist:.5E}",
+            )
             print("Number of solutions found:", len(sol.xvalues))
             print(
                 "Number of outer approximation's halfspaces found:",
@@ -443,100 +460,3 @@ class MOSVSolver:
         new_vertex_selection_solutions = np.asarray(new_vertex_selection_solutions)
 
         return new_vertex_selection_solutions, opt_pair_ind, nb_qp_solved
-
-    def _solve_pascoletti_serafini_pb(
-        self, vref: np.ndarray, dir: np.ndarray
-    ) -> Tuple[np.ndarray, float, np.ndarray, str]:
-        """Solve the Pascoletti-Serafini subproblem.
-
-        Solve: min z
-               s.t. Z (f(x) -vref - z * dir) <= 0
-               x in Omega
-        where Z defines the ordering cone
-        C = {y : Z y >= 0}
-        of the multiobjective optimization problem.
-
-        and its dual.
-
-        Arguments
-        ---------
-        vref: np.ndarray
-            The outer vertex target.
-
-        dir: np.ndarray
-            The direction to reach the outer vertex target.
-
-        Returns
-        -------
-        np.ndarray:
-            The optimal solution of the problem.
-            Contains the optimal decision values and their associated objective values.
-
-        float:
-            The optimal value of the Pascoletti-Serafini subproblem.
-
-        np.ndarray:
-            The optimal dual values of the problem,
-            that correspond to the dual optimal values of the constraints associated
-            to the objective functions.
-
-        str:
-            The status of the resolution.
-        """
-        nobj = len(self._objectives)
-        vars_ = extract_variables_from_problem(self._objectives, self._constraints)
-        Z = None if self._order_cone is None else self._order_cone.inequalities
-
-        z = cp.Variable()
-        ps_constraints = [cstr for cstr in self._constraints]
-
-        # Add constraints: Z(f(x) - vref - z * dir) <= 0
-        if Z is None:
-            # Use the Pareto dominance cone
-            for obj, objective in enumerate(self._objectives):
-                ps_constraints.append(objective.expr <= vref[obj] + z * dir[obj])
-        else:
-            for zrow in Z:
-                ps_constraints.append(
-                    sum(
-                        zrow[obj] * (objective.expr - vref[obj] - z * dir[obj])
-                        for obj, objective in enumerate(self._objectives)
-                    )
-                    <= 0
-                )
-
-        ps_pb = cp.Problem(cp.Minimize(z), ps_constraints)
-        try:
-            ps_pb.solve(solver=cp.MOSEK)
-        except:
-            return np.zeros([]), 0.0, np.zeros([]), "unsolved"
-
-        if ps_pb.status not in ["infeasible", "unbounded"]:
-            # Collect dual values associated to the rays of the order cone
-            dual_obj_constraints_vals = (
-                np.zeros(nobj) if Z is None else np.zeros(Z.shape[0])
-            )
-            if Z is None:
-                for obj in range(nobj):
-                    dual_obj_constraints_vals[obj] = ps_constraints[
-                        -nobj + obj
-                    ].dual_value
-            else:
-                for ind in range(Z.shape[0]):
-                    dual_obj_constraints_vals[ind] = ps_constraints[
-                        -Z.shape[0] + ind
-                    ].dual_value
-
-            # Collect optimal decision and objective values
-            opt_values = []
-            for var in vars_:
-                opt_values += [val for val in var.value]
-            opt_values += [objective.expr.value for objective in self._objectives]
-            return (
-                np.asarray(opt_values),
-                ps_pb.value,
-                dual_obj_constraints_vals,
-                "solved",
-            )
-
-        return np.zeros([]), 0.0, np.zeros([]), "unsolved"
