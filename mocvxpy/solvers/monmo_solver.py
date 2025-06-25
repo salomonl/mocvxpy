@@ -5,15 +5,14 @@ import time
 from mocvxpy.constants import MIN_DIST_OBJ_VECS
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.solvers.solution import OuterApproximation, Solution
-from typing import List, Optional, Tuple, Union
-
 from mocvxpy.solvers.utilities import (
     compute_extreme_objective_vectors,
     compute_extreme_points_hyperplane,
-    extract_variables_from_problem,
     number_of_variables,
-    solve_weighted_sum_problem
+    solve_weighted_sum_problem,
 )
+from mocvxpy.subproblems.norm_min import NormMinSubproblem
+from typing import List, Optional, Tuple, Union
 
 
 class MONMOSolver:
@@ -34,11 +33,12 @@ class MONMOSolver:
     order_cone: Optional[OrderCone]
         The order cone of the problem
     """
+
     def __init__(
         self,
         objectives: List[Union[cp.Minimize, cp.Maximize]],
         constraints: Optional[List[cp.Constraint]] = None,
-        order_cone: Optional[OrderCone] = None
+        order_cone: Optional[OrderCone] = None,
     ) -> None:
         nobj = len(objectives)
         if nobj <= 1:
@@ -53,8 +53,11 @@ class MONMOSolver:
         self._order_cone = order_cone
 
     def solve(
-            self, stopping_tol: float = 5 * 1e-4, maxiter: int = 10, max_pb_solved: int = 200,
-            verbose: bool = True
+        self,
+        stopping_tol: float = 5 * 1e-4,
+        maxiter: int = 10,
+        max_pb_solved: int = 200,
+        verbose: bool = True,
     ) -> Tuple[str, Solution]:
         """Solve the problem.
 
@@ -86,7 +89,8 @@ class MONMOSolver:
             if verbose:
                 print(
                     "MONMO initialization failure: the algorithm cannot obtain extreme solutions;",
-                    "initialisation phase status returns:", initial_step_status
+                    "initialisation phase status returns:",
+                    initial_step_status,
                 )
             return "no_extreme_solutions", sol
 
@@ -135,21 +139,26 @@ class MONMOSolver:
                 f"{"iter":>7} {"nb_solutions":>13} ",
                 f"{"|vert(Ok)|":>10} {"|halfspaces(Ok)|":>16} ",
                 f"{"nb_pbs_solved_per_iter":>22} {"|unknown_vertices|":>18} {"Haussdorf_dist":>14} ",
-                f"{"time_NM_pb_solve (s)":>20} {"avg_time_NM_pb_solve (s)":>24}"
+                f"{"time_NM_pb_solve (s)":>20} {"avg_time_NM_pb_solve (s)":>24}",
             )
             print()
             print(
                 f"{0:5d} {len(sol.objective_values):10d} ",
                 f"{len(outer_vertices):13d} {len(outer_approximation.halfspaces):12d} ",
                 f"{"-":>20} {"-":>19} {haussdorf_dist:21e} ",
-                f"{"-":>12} {"-":>20}"
+                f"{"-":>12} {"-":>20}",
             )
 
         known_outer_vertices = []
 
+        # Initialize subproblem
+        norm_min_pb = NormMinSubproblem(
+            self._objectives, self._constraints, self._order_cone
+        )
+
         status = "max_iter_reached"
         start_optimization = time.perf_counter()
-        elapsed_total_subproblems = 0.
+        elapsed_total_subproblems = 0.0
         total_nm_pbs_solved = 0
         total_nm_pbs_failed = 0
         for iter in range(maxiter):
@@ -168,13 +177,12 @@ class MONMOSolver:
             nb_subproblems_solved_per_iter = 0
             nb_subproblems_failed_per_iter = 0
             update_outer_approximation = False
-            elapsed_subproblems_per_iter = 0.
+            elapsed_subproblems_per_iter = 0.0
             for vertex in unknown_outer_vertices:
                 v = np.asarray(vertex)
+                norm_min_pb.parameters = v
                 start_nm_pb_solved = time.perf_counter()
-                opt_values, opt_val, w_opt, status_norm_min = (
-                    self._solve_norm_min_pb(v)
-                )
+                status_norm_min = norm_min_pb.solve()
                 end_nm_pb_solved = time.perf_counter()
 
                 # If there is a failure, we ignore it and try to compute
@@ -191,25 +199,28 @@ class MONMOSolver:
 
                 known_outer_vertices.append(v)
 
+                opt_val = norm_min_pb.value()
+                opt_obj_values = norm_min_pb.objective_values()
+
                 # Update solution
-                sol.insert_solution(opt_values[:nvars], opt_values[nvars:])
+                sol.insert_solution(norm_min_pb.solution(), opt_obj_values)
                 haussdorf_dist = max(haussdorf_dist, opt_val)
                 if opt_val > scaled_stopping_tol:
                     update_outer_approximation = True
+                    w_opt = norm_min_pb.dual_objective_values()
                     if Z is None:
                         outer_approximation.insert_halfspace(
-                            np.asarray([-np.dot(opt_values[nvars:], w_opt)] + w_opt.tolist())
+                            np.asarray(
+                                [-np.dot(opt_obj_values, w_opt)] + w_opt.tolist()
+                            )
                         )
                     else:
                         outer_approximation.insert_halfspace(
                             np.asarray(
-                                [-np.dot(opt_values[nvars:], Z.T @ w_opt)] + (Z.T @ w_opt).tolist()
+                                [-np.dot(opt_obj_values, Z.T @ w_opt)]
+                                + (Z.T @ w_opt).tolist()
                             )
                         )
-                    # outer_approximation.insert_halfspace(
-                    #     np.asarray([-np.dot(opt_values[nvars:], w_opt)] + w_opt.tolist())
-                    # )
-
 
                 if total_nm_pbs_solved >= max_pb_solved:
                     break
@@ -221,7 +232,7 @@ class MONMOSolver:
                     f"{iter+1:5d} {len(sol.xvalues):10d} ",
                     f"{len(outer_vertices):13d} {len(outer_approximation.halfspaces):12d} ",
                     f"{nb_subproblems_solved_per_iter:20d} {len(unknown_outer_vertices):19d} {haussdorf_dist:21e}",
-                    f"{elapsed_subproblems_per_iter:19e} {elapsed_total_subproblems / total_nm_pbs_solved:19e}"
+                    f"{elapsed_subproblems_per_iter:19e} {elapsed_total_subproblems / total_nm_pbs_solved:19e}",
                 )
 
             if nb_subproblems_failed_per_iter == len(unknown_outer_vertices):
@@ -253,7 +264,10 @@ class MONMOSolver:
             )
             print("Number of nm problems solved:", total_nm_pbs_solved)
             print("Number of nm problems failed:", total_nm_pbs_failed)
-            print("Average time on nm problems solved:", elapsed_total_subproblems / total_nm_pbs_solved)
+            print(
+                "Average time on nm problems solved:",
+                elapsed_total_subproblems / total_nm_pbs_solved,
+            )
             print()
 
         return status, sol
@@ -305,98 +319,3 @@ class MONMOSolver:
             status = "no_extreme_solutions"
 
         return status, sol
-
-
-    def _solve_norm_min_pb(
-        self, vref: np.ndarray
-    ) -> Tuple[np.ndarray, float, np.ndarray, str]:
-        """Solve the norm minimization subproblem.
-
-        Solve min || z ||
-              s.t. Z f(x) <= Z (z + vref)
-              x in Omega
-        where Z defines the ordering cone
-        C = {y : Z y >= 0}
-        of the multiobjective optimization problem.
-
-        and its dual.
-
-        Arguments
-        ---------
-        vref: np.ndarray
-            The outer vertex target.
-
-        Returns
-        -------
-        np.ndarray:
-            The optimal solution of the problem.
-            Contains the optimal decision values and their associated objective values.
-
-        float:
-            The optimal value of the norm min subproblem.
-
-        np.ndarray:
-            The optimal dual values of the problem,
-            that correspond to the dual optimal values of the constraints associated
-            to the objective functions.
-
-        str:
-            The status of the resolution.
-        """
-        nobj = len(self._objectives)
-        vars_ = extract_variables_from_problem(self._objectives, self._constraints)
-        Z = None if self._order_cone is None else self._order_cone.inequalities
-
-        z = cp.Variable(nobj)
-        norm_min_constraints = [cstr for cstr in self._constraints]
-
-        # Add constraints: Z f(x) <= Z (v + z)
-        if Z is None:
-            # Use the Pareto dominance cone
-            for obj, objective in enumerate(self._objectives):
-                norm_min_constraints.append(objective.expr <= vref[obj] + z[obj])
-        else:
-            for zrow in Z:
-                norm_min_constraints.append(
-                    sum(
-                        zrow[obj] * (objective.expr - vref[obj] - z[obj])
-                        for obj, objective in enumerate(self._objectives)
-                    )
-                    <= 0
-                )
-
-        norm_min_pb = cp.Problem(cp.Minimize(cp.norm(z)), norm_min_constraints)
-        try:
-            norm_min_pb.solve(solver=cp.MOSEK)
-        except:
-            return np.zeros([]), 0.0, np.zeros([]), "unsolved"
-
-        if norm_min_pb.status not in ["infeasible", "unbounded"]:
-            # Collect dual values associated to the rays of the order cone
-            dual_obj_constraints_vals = (
-                np.zeros(nobj) if Z is None else np.zeros(Z.shape[0])
-            )
-            if Z is None:
-                for obj in range(nobj):
-                    dual_obj_constraints_vals[obj] = norm_min_constraints[
-                        -nobj + obj
-                    ].dual_value
-            else:
-                for ind in range(Z.shape[0]):
-                    dual_obj_constraints_vals[ind] = norm_min_constraints[
-                        -Z.shape[0] + ind
-                    ].dual_value
-
-            # Collect optimal decision and objective values
-            opt_values = []
-            for var in vars_:
-                opt_values += [val for val in var.value]
-            opt_values += [objective.expr.value for objective in self._objectives]
-            return (
-                np.asarray(opt_values),
-                norm_min_pb.value,
-                dual_obj_constraints_vals,
-                "solved",
-            )
-
-        return np.zeros([]), 0.0, np.zeros([]), "unsolved"
