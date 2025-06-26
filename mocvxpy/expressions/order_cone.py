@@ -140,7 +140,7 @@ def compute_order_cone_from_its_rays(D: np.ndarray) -> OrderCone:
     hmat = []
     for halfspace in hmat_exact.array:
         hmat.append([float(hi) for hi in halfspace])
-        Z = [z[1:] for z in hmat]
+    Z = [z[1:] for z in hmat]
     C = OrderCone(np.asarray(Z))
 
     # Set directly its rays
