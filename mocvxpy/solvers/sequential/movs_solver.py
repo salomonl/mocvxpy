@@ -2,14 +2,14 @@ import cvxpy as cp
 import numpy as np
 import time
 
-from mocvxpy.constants import MIN_DIST_OBJ_VECS
-from mocvxpy.expressions.order_cone import OrderCone
-from mocvxpy.solvers.solution import OuterApproximation, Solution
-from mocvxpy.solvers.utilities import (
+from mocvxpy.solvers.common import (
     compute_extreme_objective_vectors,
     compute_extreme_points_hyperplane,
-    number_of_variables,
 )
+from mocvxpy.constants import MIN_DIST_OBJ_VECS
+from mocvxpy.expressions.order_cone import OrderCone
+from mocvxpy.problems.utilities import number_of_variables
+from mocvxpy.solvers.solution import OuterApproximation, Solution
 from mocvxpy.subproblems.pascoletti_serafini import PascolettiSerafiniSubproblem
 from mocvxpy.subproblems.weighted_sum import WeightedSumSubproblem
 from typing import List, Optional, Tuple, Union
