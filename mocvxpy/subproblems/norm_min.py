@@ -1,12 +1,8 @@
 import cvxpy as cp
 import numpy as np
 
-from copy import copy
 from mocvxpy.subproblems.subproblem import Subproblem
 from mocvxpy.expressions.order_cone import OrderCone
-from mocvxpy.solvers.utilities import (
-    extract_variables_from_problem,
-)
 from typing import List, Optional, Union
 
 
@@ -38,22 +34,14 @@ class NormMinSubproblem(Subproblem):
         constraints: Optional[List[cp.Constraint]] = None,
         order_cone: Optional[OrderCone] = None,
     ) -> None:
-        nobj = len(objectives)
-        if nobj <= 1:
-            raise ValueError("The number of objectives must be superior to 1", nobj)
-        self._objectives = copy(objectives)
+        super().__init__(objectives, constraints, order_cone)
 
-        if constraints is None:
-            self._constraints = []
-        else:
-            self._constraints = copy(constraints)
-
-        self._order_cone = order_cone
+    def create_subproblem(self):
+        nobj = len(self._objectives)
 
         # Create the outer vertex target.
         self._vref = cp.Parameter(nobj)
 
-        self._vars = extract_variables_from_problem(self._objectives, self._constraints)
         z = cp.Variable(nobj)
 
         # Add constraints: Z f(x) <= Z (v + z)
@@ -72,7 +60,7 @@ class NormMinSubproblem(Subproblem):
                     <= 0
                 )
 
-        self._pb = cp.Problem(cp.Minimize(cp.norm(z)), self._constraints)
+        return cp.Problem(cp.Minimize(cp.norm(z)), self._constraints)
 
     @property
     def parameters(self) -> np.ndarray:
@@ -96,29 +84,6 @@ class NormMinSubproblem(Subproblem):
         """
         nobj = len(self._objectives)
         self._vref.value = param_values[:nobj]
-
-    def solution(self) -> np.ndarray:
-        """Returns the optimal objective values that correspond to the
-           original multiobjective problem.
-
-        Warning! It is the responsability of the user to call the solve() method
-        before calling this method and to check the optimization has worked.
-        Otherwise, the values are likely to be wrong.
-        """
-        opt_values = []
-        for var in self._vars:
-            opt_values += [val for val in var.value]
-        return np.asarray(opt_values)
-
-    def objective_values(self) -> np.ndarray:
-        """Returns the optimal objective values that correspond to the
-           original multiobjective problem.
-
-        Warning! It is the responsability of the user to call the solve() method
-        before calling this method and to check the resolution has worked. Otherwise,
-        the values are likely to be wrong.
-        """
-        return np.array([objective.expr.value for objective in self._objectives])
 
     def dual_objective_values(self) -> np.ndarray:
         """Returns the dual values associated to the ``objective constraints''
@@ -147,30 +112,3 @@ class NormMinSubproblem(Subproblem):
                 ].dual_value
 
         return dual_obj_constraints_vals
-
-    def value(self) -> float:
-        """Returns the optimal objective value of the subproblem.
-
-        Warning! It is the responsability of the user to call the solve() method
-        before calling this method and to check the resolution has worked. Otherwise,
-        the value is likely to be wrong.
-        """
-        return self._pb.value
-
-    def solve(self) -> str:
-        """Solve the problem.
-
-        Returns
-        -------
-        str
-           The status of the resolution
-        """
-        try:
-            self._pb.solve(solver=cp.MOSEK)
-        except:
-            return "unsolved"
-
-        if self._pb.status not in ["infeasible", "unbounded"]:
-            return "solved"
-
-        return "unsolved"
