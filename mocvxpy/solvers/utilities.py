@@ -67,65 +67,6 @@ def compute_extreme_objective_vectors(
     status = "solved"
     return status, solutions, objective_values
 
-def solve_weighted_sum_problem(
-    objectives: List[Union[cp.Minimize, cp.Maximize]],
-    constraints: Optional[List[cp.Constraint]],
-    weights: np.ndarray
-) -> Tuple[str, np.ndarray, np.ndarray]:
-    """Solve the weighted sum problem associated to multiple objectives.
-
-    Solve min sum wi fi(x)
-          s.t. x in X
-    where:
-    - X is the set of constraints
-
-    Arguments
-    ---------
-    objectives : list[Minimize or Maximize]
-        The problem's objectives.
-
-    constraints : list
-        The constraints on the problem variables.
-
-    weights: np.ndarray
-        The weights for the objectives.
-
-    Returns
-    -------
-    Tuple[str, np.ndarray, np.ndarray]
-        The status of the optimization ("solved", "unbounded", "unfeasible"),
-        the solution associated and its objective values.
-    """
-    nobj = len(objectives)
-    if nobj <= 1:
-        raise ValueError("The number of objectives must be superior to 1", nobj)
-    if np.size(weights) != nobj:
-        raise ValueError("The number of weights |W| = ", np.size(weights),
-                         "is not compatible with the number of objectives", nobj)
-    constraints_ = [] if constraints is None else constraints
-
-    vars_ = extract_variables_from_problem(objectives, constraints_)
-
-    # TODO: take into consideration min and max
-    weighted_sum_objective = cp.Minimize(sum(weights[obj] * objective.expr for (obj, objective) in enumerate(objectives)))
-    weighted_sum_pb = cp.Problem(weighted_sum_objective, constraints_)
-    weighted_sum_pb.solve(solver=cp.MOSEK)
-
-    # Collect solution
-    if weighted_sum_pb.status not in ["infeasible", "unbounded"]:
-        status = "solved"
-        opt_values: List[float] = []
-        for var in vars_:
-            opt_values += var.value.tolist()
-        solutions = np.asarray(opt_values)
-
-        objective_values = compute_objective_values(objectives)
-
-        return status, solutions, objective_values
-
-    status = weighted_sum_pb.status
-    return status, np.array([]), np.array([])
-
 def extract_variables_from_problem(
     objectives: List[Union[cp.Minimize, cp.Maximize]],
     constraints: List[cp.Constraint],

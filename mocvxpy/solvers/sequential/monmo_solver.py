@@ -9,9 +9,9 @@ from mocvxpy.solvers.utilities import (
     compute_extreme_objective_vectors,
     compute_extreme_points_hyperplane,
     number_of_variables,
-    solve_weighted_sum_problem,
 )
 from mocvxpy.subproblems.norm_min import NormMinSubproblem
+from mocvxpy.subproblems.weighted_sum import WeightedSumSubproblem
 from typing import List, Optional, Tuple, Union
 
 
@@ -348,15 +348,17 @@ class MONMOSolver:
             return init_phase_result[0], sol
 
         status = "solved"
+        weighted_sum_pb = WeightedSumSubproblem(self._objectives, self._constraints)
         for weights in self._order_cone.inequalities:
-            weighted_sum_result = solve_weighted_sum_problem(
-                self._objectives, self._constraints, weights
-            )
-            if weighted_sum_result[0] == "solved":
-                sol.insert_solution(weighted_sum_result[1], weighted_sum_result[2])
+            weighted_sum_pb.parameters = weights
+            weighted_sum_status = weighted_sum_pb.solve()
+            if weighted_sum_status == "solved":
+                sol.insert_solution(
+                    weighted_sum_pb.solution(), weighted_sum_pb.objective_values()
+                )
                 continue
 
-            if weighted_sum_result[0] == "infeasible":
+            if weighted_sum_status == "infeasible":
                 status = "infeasible"
                 break
 
