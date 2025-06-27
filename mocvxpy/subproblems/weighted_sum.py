@@ -2,7 +2,6 @@ import cvxpy as cp
 import numpy as np
 
 from mocvxpy.subproblems.subproblem import Subproblem
-from mocvxpy.expressions.order_cone import OrderCone
 from typing import List, Optional, Union
 
 
