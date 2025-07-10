@@ -15,26 +15,27 @@ from matplotlib import pyplot as plt
 # with a[1] = (1, 1)^T
 #      a[2] = (2, 3)^T
 #      a[3] = (4, 2)^T
-x = mocp.Variable(2)
+if __name__ == "__main__":
+    x = mocp.Variable(2)
 
-# Parameters
-a = np.array([[1, 1], [2, 3], [4, 2]])
+    # Parameters
+    a = np.array([[1, 1], [2, 3], [4, 2]])
 
-objectives = [
-    cp.Minimize(cp.sum_squares(x - a[0])),
-    cp.Minimize(cp.sum_squares(x - a[1])),
-    cp.Minimize(cp.sum_squares(x - a[2])),
-]
-constraints = [x >= 0, x <= [10, 4], x[0] + 2 * x[1] <= 10]
+    objectives = [
+        cp.Minimize(cp.sum_squares(x - a[0])),
+        cp.Minimize(cp.sum_squares(x - a[1])),
+        cp.Minimize(cp.sum_squares(x - a[2])),
+    ]
+    constraints = [x >= 0, x <= [10, 4], x[0] + 2 * x[1] <= 10]
 
-client = Client(processes=False)
-solver = mocp.MONMOParSolver(client, objectives, constraints)
-status, solution = solver.solve()
+    client = Client()
+    solver = mocp.MONMOParSolver(client, objectives, constraints)
+    status, solution = solver.solve()
 
-ax = plt.figure().add_subplot(projection="3d")
-ax.scatter(
-    [vertex[0] for vertex in solution.objective_values],
-    [vertex[1] for vertex in solution.objective_values],
-    [vertex[2] for vertex in solution.objective_values],
-)
-plt.show()
+    ax = plt.figure().add_subplot(projection="3d")
+    ax.scatter(
+        [vertex[0] for vertex in solution.objective_values],
+        [vertex[1] for vertex in solution.objective_values],
+        [vertex[2] for vertex in solution.objective_values],
+    )
+    plt.show()

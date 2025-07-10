@@ -12,40 +12,43 @@ from matplotlib import pyplot as plt
 # min f(x) = x with respect to the order cone C
 # s.t. || x - 1 ||_2 <= 1
 # x in R^2
-n = 3
-x = mocp.Variable(n)
+if __name__ == "__main__":
+    n = 3
+    x = mocp.Variable(n)
 
-objectives = [cp.Minimize(x[i]) for i in range(n)]
-constraints = [cp.sum_squares(x - np.ones(n)) <= 1]
-# Compute the cone defined by:
-# C = conv cone {(1, 2)^T, (2, 1)^T}
-# C = mocp.compute_order_cone_from_its_rays(np.array([[1, 2], [2, 1]]))
-# C = mocp.compute_order_cone_from_its_rays(np.array([[2, -1], [-1, 2]]))
+    objectives = [cp.Minimize(x[i]) for i in range(n)]
+    constraints = [cp.sum_squares(x - np.ones(n)) <= 1]
+    # Compute the cone defined by:
+    # C = conv cone {(1, 2)^T, (2, 1)^T}
+    # C = mocp.compute_order_cone_from_its_rays(np.array([[1, 2], [2, 1]]))
+    # C = mocp.compute_order_cone_from_its_rays(np.array([[2, -1], [-1, 2]]))
 
-# C = mocp.compute_order_cone_from_its_rays(np.array([[4, 2, 2],
-#                                                     [2, 4, 2],
-#                                                     [4, 0, 2],
-#                                                     [1, 0, 2],
-#                                                     [0, 1, 2],
-#                                                     [0, 4, 2]]))
+    # C = mocp.compute_order_cone_from_its_rays(np.array([[4, 2, 2],
+    #                                                     [2, 4, 2],
+    #                                                     [4, 0, 2],
+    #                                                     [1, 0, 2],
+    #                                                     [0, 1, 2],
+    #                                                     [0, 4, 2]]))
 
-C = mocp.compute_order_cone_from_its_rays(
-    np.array([[-1, -1, 3], [2, 2, -1], [1, 0, 0], [0, -1, 2], [-1, 0, 2], [0, 1, 0]])
-)
+    C = mocp.compute_order_cone_from_its_rays(
+        np.array(
+            [[-1, -1, 3], [2, 2, -1], [1, 0, 0], [0, -1, 2], [-1, 0, 2], [0, 1, 0]]
+        )
+    )
 
-client = Client(processes=False)
-solver = mocp.MONMOParSolver(client, objectives, constraints, C)
-status, solution = solver.solve()
+    client = Client()
+    solver = mocp.MONMOParSolver(client, objectives, constraints, C)
+    status, solution = solver.solve()
 
-# ax = plt.figure().add_subplot()
-# ax.scatter([vertex[0] for vertex in solution.objective_values],
-#            [vertex[1] for vertex in solution.objective_values])
-# plt.show()
+    # ax = plt.figure().add_subplot()
+    # ax.scatter([vertex[0] for vertex in solution.objective_values],
+    #            [vertex[1] for vertex in solution.objective_values])
+    # plt.show()
 
-ax = plt.figure().add_subplot(projection="3d")
-ax.scatter(
-    [vertex[0] for vertex in solution.objective_values],
-    [vertex[1] for vertex in solution.objective_values],
-    [vertex[2] for vertex in solution.objective_values],
-)
-plt.show()
+    ax = plt.figure().add_subplot(projection="3d")
+    ax.scatter(
+        [vertex[0] for vertex in solution.objective_values],
+        [vertex[1] for vertex in solution.objective_values],
+        [vertex[2] for vertex in solution.objective_values],
+    )
+    plt.show()

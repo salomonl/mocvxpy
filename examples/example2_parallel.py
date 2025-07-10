@@ -9,21 +9,22 @@ from matplotlib import pyplot as plt
 # min f(x) = [(x1 - 3)^2 + (x2 - 3)^2
 #             (x1 - 1)^2 + (x2 - 1)^2]
 # s.t. |x1| + 2 |x2| <= 2
-x = mocp.Variable(2)
+if __name__ == "__main__":
+    x = mocp.Variable(2)
 
-objectives = [
-    cp.Minimize(cp.sum_squares(x - np.array([3.0, 3.0]))),
-    cp.Minimize(cp.sum_squares(x - np.array([1.0, 1.0]))),
-]
-constraints = [cp.abs(x[0]) + 2 * cp.abs(x[1]) <= 2]
+    objectives = [
+        cp.Minimize(cp.sum_squares(x - np.array([3.0, 3.0]))),
+        cp.Minimize(cp.sum_squares(x - np.array([1.0, 1.0]))),
+    ]
+    constraints = [cp.abs(x[0]) + 2 * cp.abs(x[1]) <= 2]
 
-client = Client(processes=False)
-solver = mocp.MONMOParSolver(client, objectives, constraints)
-status, solution = solver.solve()
+    client = Client()
+    solver = mocp.MONMOParSolver(client, objectives, constraints)
+    status, solution = solver.solve()
 
-ax = plt.figure().add_subplot()
-ax.scatter(
-    [vertex[0] for vertex in solution.objective_values],
-    [vertex[1] for vertex in solution.objective_values],
-)
-plt.show()
+    ax = plt.figure().add_subplot()
+    ax.scatter(
+        [vertex[0] for vertex in solution.objective_values],
+        [vertex[1] for vertex in solution.objective_values],
+    )
+    plt.show()
