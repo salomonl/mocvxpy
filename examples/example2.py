@@ -17,7 +17,7 @@ constraints = [cp.abs(x[0]) + 2 * cp.abs(x[1]) <= 2]
 solver = mocp.MONMOSolver(objectives, constraints)
 status, solution = solver.solve()
 
-solver = mocp.MOSVSolver(objectives, constraints)
+solver = mocp.MOVSSolver(objectives, constraints)
 status, solution = solver.solve()
 
 ax = plt.figure().add_subplot()

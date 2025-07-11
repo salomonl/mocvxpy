@@ -20,7 +20,7 @@ constraints = [np.array([[1, 1, 1, 0, 0, 0],
                          [3, 6, 3, 4, 1, 1],
                          [3, 1, 1, 2, 4, 4]]) @ x >= 0]
 
-solver = mocp.MOSVSolver(objectives, constraints)
+solver = mocp.MOVSSolver(objectives, constraints)
 status, solution = solver.solve()
 
 ax = plt.figure().add_subplot(projection="3d")

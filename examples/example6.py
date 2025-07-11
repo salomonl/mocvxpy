@@ -34,7 +34,7 @@ C = mocp.compute_order_cone_from_its_rays(np.array([[-1, -1, 3],
                                                     [-1, 0, 2],
                                                     [0, 1, 0]]))
 
-# solver = mocp.MOSVSolver(objectives, constraints, C)
+# solver = mocp.MOVSSolver(objectives, constraints, C)
 # status, solution = solver.solve()
 
 solver = mocp.MONMOSolver(objectives, constraints, C)

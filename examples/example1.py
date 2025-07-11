@@ -18,7 +18,7 @@ constraints = [x >= 0,
 solver = mocp.MONMOSolver(objectives, constraints)
 status, solution = solver.solve()
 
-solver = mocp.MOSVSolver(objectives, constraints)
+solver = mocp.MOVSSolver(objectives, constraints)
 status, solution = solver.solve()
 
 # pb = mocp.Problem(objectives, constraints)

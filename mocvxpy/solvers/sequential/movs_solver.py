@@ -15,8 +15,8 @@ from mocvxpy.subproblems.weighted_sum import WeightedSumSubproblem
 from typing import List, Optional, Tuple, Union
 
 
-class MOSVSolver:
-    """The MOSV (MultiObjective Optimization by Vertex Selection) solver.
+class MOVSSolver:
+    """The MOVS (MultiObjective Optimization by Vertex Selection) solver.
 
     Described in
     Dörfler, D., Löhne, A., Schneider, C., & Weißing, B. (2021).
