@@ -3,7 +3,7 @@ import numpy as np
 
 from mocvxpy.subproblems.subproblem import Subproblem
 from mocvxpy.expressions.order_cone import OrderCone
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 
 
 class NormMinSubproblem(Subproblem):
@@ -112,3 +112,62 @@ class NormMinSubproblem(Subproblem):
                 ].dual_value
 
         return dual_obj_constraints_vals
+
+
+def solve_norm_min_subproblem(
+    outer_vertex: np.ndarray,
+    objectives: List[Union[cp.Minimize, cp.Maximize]],
+    constraints: Optional[List[cp.Constraint]] = None,
+    order_cone: Optional[OrderCone] = None,
+) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, float]:
+    """Solve the norm minimization subproblem.
+
+    Solve min || z ||
+          s.t. Z f(x) <= Z (z + vref)
+          x in Omega
+    where Z defines the ordering cone
+    C = {y : Z y >= 0}
+    of the multiobjective optimization problem.
+
+    and its dual.
+
+    NB: Create and solve the corresponding subproblem, which involves a cost.
+    This function is used for parallelism, since it guarantees the independence of
+    the created subproblems.
+
+    Arguments
+    ---------
+    outer_vertex: np.ndarray
+        The outer vertex (vref).
+    objectives: list[Minimize or Maximize]
+        The problem's objectives.
+    constraints: list
+        The constraints on the problem variables.
+    order_cone: Optional[OrderCone]
+        The order cone of the problem.
+
+    Returns
+    -------
+    Tuple[str, np.ndarray, np.ndarray, np.ndarray, float]
+        The status of the optimization, the optimal solution values, the optimal objective values,
+        the dual objective values and the optimal value of the norm min subproblem.
+    """
+    norm_min_pb = NormMinSubproblem(objectives, constraints, order_cone)
+    norm_min_pb.parameters = outer_vertex
+    norm_min_status = norm_min_pb.solve()
+    if norm_min_status not in ["infeasible", "unbounded", "unsolved"]:
+        return (
+            norm_min_status,
+            norm_min_pb.solution(),
+            norm_min_pb.objective_values(),
+            norm_min_pb.dual_objective_values(),
+            norm_min_pb.value(),
+        )
+    else:
+        return (
+            norm_min_status,
+            np.ndarray([]),
+            np.ndarray([]),
+            np.ndarray([]),
+            -1.0,
+        )

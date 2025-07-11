@@ -3,7 +3,7 @@ import numpy as np
 
 from mocvxpy.subproblems.subproblem import Subproblem
 from mocvxpy.expressions.order_cone import OrderCone
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 
 
 class PascolettiSerafiniSubproblem(Subproblem):
@@ -122,3 +122,65 @@ class PascolettiSerafiniSubproblem(Subproblem):
                 ].dual_value
 
         return dual_obj_constraints_vals
+
+
+def solve_pascoletti_serafini_subproblem(
+    outer_vertex: np.ndarray,
+    direction: np.ndarray,
+    objectives: List[Union[cp.Minimize, cp.Maximize]],
+    constraints: Optional[List[cp.Constraint]] = None,
+    order_cone: Optional[OrderCone] = None,
+) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, float]:
+    """Solve the Pascoletti-Serafini subproblem.
+
+    Solve: min z
+           s.t. Z (f(x) -vref - z * dir) <= 0
+           x in Omega
+    where Z defines the ordering cone
+    C = {y : Z y >= 0}
+    of the multiobjective optimization problem.
+
+    and its dual.
+
+    NB: Create and solve the corresponding subproblem, which involves a cost.
+    This function is used for parallelism, since it guarantees the independence of
+    the created subproblems.
+
+    Arguments
+    ---------
+    outer_vertex: np.ndarray
+        The outer vertex (vref).
+    direction: np.ndarray
+        The direction.
+    objectives: list[Minimize or Maximize]
+        The problem's objectives.
+    constraints: list
+        The constraints on the problem variables.
+    order_cone: Optional[OrderCone]
+        The order cone of the problem.
+
+    Returns
+    -------
+    Tuple[str, np.ndarray, np.ndarray, np.ndarray, float]
+        The status of the optimization, the optimal solution values, the optimal objective values,
+        the dual objective values and the optimal value of the pascoletti-serafini subproblem.
+    """
+    ps_pb = PascolettiSerafiniSubproblem(objectives, constraints, order_cone)
+    ps_pb.parameters = np.concatenate((outer_vertex, direction))
+    ps_pb_status = ps_pb.solve()
+    if ps_pb_status not in ["infeasible", "unbounded", "unsolved"]:
+        return (
+            ps_pb_status,
+            ps_pb.solution(),
+            ps_pb.objective_values(),
+            ps_pb.dual_objective_values(),
+            ps_pb.value(),
+        )
+    else:
+        return (
+            ps_pb_status,
+            np.ndarray([]),
+            np.ndarray([]),
+            np.ndarray([]),
+            -1.0,
+        )

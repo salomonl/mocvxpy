@@ -4,18 +4,15 @@ import numpy as np
 import time
 
 from dask.distributed import Client
-from mocvxpy.solvers.common import compute_extreme_points_hyperplane
 from mocvxpy.constants import MIN_DIST_OBJ_VECS
 from mocvxpy.expressions.order_cone import OrderCone
+from mocvxpy.problems.utilities import number_of_variables
+from mocvxpy.solvers.common import compute_extreme_points_hyperplane
 from mocvxpy.solvers.solution import OuterApproximation, Solution
-from mocvxpy.problems.utilities import (
-    number_of_variables,
-)
-from mocvxpy.subproblems.norm_min import NormMinSubproblem
-from mocvxpy.subproblems.one_objective import OneObjectiveSubproblem
+from mocvxpy.subproblems.norm_min import solve_norm_min_subproblem
+from mocvxpy.subproblems.one_objective import solve_one_objective_subproblem
+from mocvxpy.subproblems.weighted_sum import solve_weighted_sum_subproblem
 from typing import List, Optional, Tuple, Union
-
-from mocvxpy.subproblems.weighted_sum import WeightedSumSubproblem
 
 
 class MONMOParSolver:
@@ -157,33 +154,6 @@ class MONMOParSolver:
                 f"{"-":>20} {"-":>19} {haussdorf_dist:21e} ",
                 f"{"-":>12}",
             )
-
-        # Define task
-        def solve_norm_min_subproblem(
-            outer_vertex: np.ndarray,
-            objectives: List[Union[cp.Minimize, cp.Maximize]],
-            constraints: Optional[List[cp.Constraint]] = None,
-            order_cone: Optional[OrderCone] = None,
-        ) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, float]:
-            norm_min_pb = NormMinSubproblem(objectives, constraints, order_cone)
-            norm_min_pb.parameters = outer_vertex
-            norm_min_status = norm_min_pb.solve()
-            if norm_min_status not in ["infeasible", "unbounded"]:
-                return (
-                    norm_min_status,
-                    norm_min_pb.solution(),
-                    norm_min_pb.objective_values(),
-                    norm_min_pb.dual_objective_values(),
-                    norm_min_pb.value(),
-                )
-            else:
-                return (
-                    norm_min_status,
-                    np.ndarray([]),
-                    np.ndarray([]),
-                    np.ndarray([]),
-                    -1.0,
-                )
 
         explored_outer_vertices_information = []
         optimal_outer_vertices = []
@@ -374,47 +344,11 @@ class MONMOParSolver:
         Solution:
             The set of all solutions found during the initial step.
         """
-
-        # Define tasks
-        def solve_single_objective_subproblem(
-            obj: int,
-            objectives: List[Union[cp.Minimize, cp.Maximize]],
-            constraints: Optional[List[cp.Constraint]] = None,
-        ) -> Tuple[str, np.ndarray, np.ndarray]:
-            single_obj_pb = OneObjectiveSubproblem(objectives, constraints)
-            single_obj_pb.parameters = obj
-            single_obj_status = single_obj_pb.solve()
-            if single_obj_status not in ["infeasible", "unbounded"]:
-                return (
-                    single_obj_status,
-                    single_obj_pb.solution(),
-                    single_obj_pb.objective_values(),
-                )
-            else:
-                return single_obj_status, np.ndarray([]), np.ndarray([])
-
-        def solve_weighted_sum_subproblem(
-            weights: np.ndarray,
-            objectives: List[Union[cp.Minimize, cp.Maximize]],
-            constraints: Optional[List[cp.Constraint]] = None,
-        ) -> Tuple[str, np.ndarray, np.ndarray]:
-            weighted_sum_pb = WeightedSumSubproblem(objectives, constraints)
-            weighted_sum_pb.parameters = weights
-            weighted_sum_status = weighted_sum_pb.solve()
-            if weighted_sum_status not in ["infeasible", "unbounded"]:
-                return (
-                    weighted_sum_status,
-                    weighted_sum_pb.solution(),
-                    weighted_sum_pb.objective_values(),
-                )
-            else:
-                return weighted_sum_status, np.ndarray([]), np.ndarray([])
-
         # Solve all problems in parallel
         nobj = len(self._objectives)
         if self._order_cone is None:
             tasks = [
-                dask.delayed(solve_single_objective_subproblem)(
+                dask.delayed(solve_one_objective_subproblem)(
                     obj, self._objectives, self._constraints
                 )
                 for obj in range(nobj)

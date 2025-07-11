@@ -9,9 +9,9 @@ from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import number_of_variables
 from mocvxpy.solvers.common import compute_extreme_points_hyperplane
 from mocvxpy.solvers.solution import OuterApproximation, Solution
-from mocvxpy.subproblems.one_objective import OneObjectiveSubproblem
-from mocvxpy.subproblems.pascoletti_serafini import PascolettiSerafiniSubproblem
-from mocvxpy.subproblems.weighted_sum import WeightedSumSubproblem
+from mocvxpy.subproblems.one_objective import solve_one_objective_subproblem
+from mocvxpy.subproblems.pascoletti_serafini import solve_pascoletti_serafini_subproblem
+from mocvxpy.subproblems.weighted_sum import solve_weighted_sum_subproblem
 from typing import List, Optional, Tuple, Union
 
 
@@ -151,34 +151,6 @@ class MOVSParSolver:
                 f"{"-":>13}",
                 f"{haussdorf_dist:14e}",
             )
-
-        # Define task
-        def solve_pascoletti_serafini_subproblem(
-            outer_vertex: np.ndarray,
-            direction: np.ndarray,
-            objectives: List[Union[cp.Minimize, cp.Maximize]],
-            constraints: Optional[List[cp.Constraint]] = None,
-            order_cone: Optional[OrderCone] = None,
-        ):
-            ps_pb = PascolettiSerafiniSubproblem(objectives, constraints, order_cone)
-            ps_pb.parameters = np.concatenate((outer_vertex, direction))
-            ps_pb_status = ps_pb.solve()
-            if ps_pb_status not in ["infeasible", "unbounded", "unsolved"]:
-                return (
-                    ps_pb_status,
-                    ps_pb.solution(),
-                    ps_pb.objective_values(),
-                    ps_pb.dual_objective_values(),
-                    ps_pb.value(),
-                )
-            else:
-                return (
-                    ps_pb_status,
-                    np.ndarray([]),
-                    np.ndarray([]),
-                    np.ndarray([]),
-                    -1.0,
-                )
 
         status = "maxiter_reached"
         vertex_selection_solutions = np.array([]).reshape((0, 2 * nobj))
@@ -347,47 +319,11 @@ class MOVSParSolver:
         Solution:
             The set of all solutions found during the initial step.
         """
-
-        # Define tasks
-        def solve_single_objective_subproblem(
-            obj: int,
-            objectives: List[Union[cp.Minimize, cp.Maximize]],
-            constraints: Optional[List[cp.Constraint]] = None,
-        ) -> Tuple[str, np.ndarray, np.ndarray]:
-            single_obj_pb = OneObjectiveSubproblem(objectives, constraints)
-            single_obj_pb.parameters = obj
-            single_obj_status = single_obj_pb.solve()
-            if single_obj_status not in ["infeasible", "unbounded"]:
-                return (
-                    single_obj_status,
-                    single_obj_pb.solution(),
-                    single_obj_pb.objective_values(),
-                )
-            else:
-                return single_obj_status, np.ndarray([]), np.ndarray([])
-
-        def solve_weighted_sum_subproblem(
-            weights: np.ndarray,
-            objectives: List[Union[cp.Minimize, cp.Maximize]],
-            constraints: Optional[List[cp.Constraint]] = None,
-        ) -> Tuple[str, np.ndarray, np.ndarray]:
-            weighted_sum_pb = WeightedSumSubproblem(objectives, constraints)
-            weighted_sum_pb.parameters = weights
-            weighted_sum_status = weighted_sum_pb.solve()
-            if weighted_sum_status not in ["infeasible", "unbounded"]:
-                return (
-                    weighted_sum_status,
-                    weighted_sum_pb.solution(),
-                    weighted_sum_pb.objective_values(),
-                )
-            else:
-                return weighted_sum_status, np.ndarray([]), np.ndarray([])
-
         # Solve all problems in parallel
         nobj = len(self._objectives)
         if self._order_cone is None:
             tasks = [
-                dask.delayed(solve_single_objective_subproblem)(
+                dask.delayed(solve_one_objective_subproblem)(
                     obj, self._objectives, self._constraints
                 )
                 for obj in range(nobj)

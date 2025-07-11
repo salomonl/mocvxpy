@@ -2,7 +2,7 @@ import cvxpy as cp
 import numpy as np
 
 from mocvxpy.subproblems.subproblem import Subproblem
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 
 class WeightedSumSubproblem(Subproblem):
@@ -92,3 +92,46 @@ class WeightedSumSubproblem(Subproblem):
         """
         # There is no dual values in this case
         return np.array([])
+
+
+def solve_weighted_sum_subproblem(
+    weights: np.ndarray,
+    objectives: List[Union[cp.Minimize, cp.Maximize]],
+    constraints: Optional[List[cp.Constraint]] = None,
+) -> Tuple[str, np.ndarray, np.ndarray]:
+    """Solve the weighted subproblem.
+
+    Solve min sum wi fi(x)
+          x in Omega
+
+    and its dual.
+
+    NB: Create and solve the corresponding subproblem, which involves a cost.
+    This function is used for parallelism, since it guarantees the independence of
+    the created subproblems.
+
+    Arguments
+    ---------
+    weights: np.ndarray
+        The weights.
+    objectives: list[Minimize or Maximize]
+        The problem's objectives.
+    constraints: list
+        The constraints on the problem variables.
+
+    Returns
+    -------
+    Tuple[str, np.ndarray, np.ndarray]
+        The status of the optimization, the optimal solution values and the optimal objective values.
+    """
+    weighted_sum_pb = WeightedSumSubproblem(objectives, constraints)
+    weighted_sum_pb.parameters = weights
+    weighted_sum_status = weighted_sum_pb.solve()
+    if weighted_sum_status not in ["infeasible", "unbounded", "unsolved"]:
+        return (
+            weighted_sum_status,
+            weighted_sum_pb.solution(),
+            weighted_sum_pb.objective_values(),
+        )
+    else:
+        return weighted_sum_status, np.ndarray([]), np.ndarray([])
