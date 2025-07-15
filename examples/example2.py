@@ -14,10 +14,13 @@ objectives = [cp.Minimize(cp.sum_squares(x - np.array([3., 3.]))),
               cp.Minimize(cp.sum_squares(x - np.array([1., 1.])))]
 constraints = [cp.abs(x[0]) + 2 * cp.abs(x[1]) <= 2]
 
-solver = mocp.MONMOSolver(objectives, constraints)
-status, solution = solver.solve()
+#solver = mocp.MONMOSolver(objectives, constraints)
+#status, solution = solver.solve()
 
-solver = mocp.MOVSSolver(objectives, constraints)
+#solver = mocp.MOVSSolver(objectives, constraints)
+#status, solution = solver.solve()
+
+solver = mocp.ADENASolver(objectives, constraints)
 status, solution = solver.solve()
 
 ax = plt.figure().add_subplot()

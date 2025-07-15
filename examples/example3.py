@@ -23,10 +23,13 @@ objectives = [cp.Minimize(cp.sum_squares(x - a[0])),
               cp.Minimize(cp.sum_squares(x - a[2]))]
 constraints = [x >= 0, x <= [10, 4], x[0] + 2 * x[1] <= 10]
 
-solver = mocp.MONMOSolver(objectives, constraints)
-status, solution = solver.solve()
+# solver = mocp.MONMOSolver(objectives, constraints)
+# status, solution = solver.solve()
 
-solver = mocp.MOVSSolver(objectives, constraints)
+# solver = mocp.MOVSSolver(objectives, constraints)
+# status, solution = solver.solve()
+
+solver = mocp.ADENASolver(objectives, constraints)
 status, solution = solver.solve()
 
 ax = plt.figure().add_subplot(projection='3d')

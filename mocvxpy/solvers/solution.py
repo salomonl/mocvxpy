@@ -4,7 +4,7 @@ import numpy as np
 from cdd import gmp
 from fractions import Fraction
 from mocvxpy.constants import MIN_DIST_OBJ_VECS, MIN_TOL_HYPERPLANES
-from typing import Optional, Sequence
+from typing import List, Optional, Sequence
 
 
 class Solution:
@@ -165,6 +165,7 @@ class Solution:
         """
         return np.min(self.objective_values, axis=0)
 
+
 class OuterApproximation:
     """Defines an outer approximation of a solution set
     for a multiobjective problem.
@@ -265,3 +266,295 @@ class OuterApproximation:
             del outer_vertices[ind]
 
         return np.asarray(outer_vertices)
+
+
+def update_local_lower_bounds(
+    lower_bounds: List[np.ndarray], y: np.ndarray, nobj: int
+) -> List[np.ndarray]:
+    """Update a local lower bounds set.
+
+    Given an objective vector, update a set of local lower bounds of a
+    multiobjective problem.
+
+    The implementation follows the description of Algorithm 2 given in:
+    Eichfelder, G., & Warnow, L. (2023).
+    "Advancements in the computation of enclosures for multi-objective optimization problems."
+    European Journal of Operational Research, 310(1), p. 315-327.
+    https://doi.org/10.1016/j.ejor.2023.02.032
+
+    The algorithm is not implemented in a Python class to be the most efficient possible.
+    It is the responsability of the user to assure the arguments satisfy the correct assumptions.
+
+    Arguments
+    ---------
+    lower_bounds: list[np.ndarray]
+        The set of local lower bounds. Each objective vector is of dimension nobj
+    y: np.ndarray
+        An update point of dimension nobj.
+
+    Returns
+    -------
+    list[np.ndarray]
+       The set of local lower bounds updated.
+    """
+    # Compute A = {l in lower_bounds | y > l}: Search zones that contain y
+    L = np.array(lower_bounds)
+    nlower_bounds = L.shape[0]
+    A_indexes = np.zeros(nlower_bounds, dtype=bool)
+    for ind in range(nlower_bounds):
+        if (y > L[ind]).all():
+            A_indexes[ind] = True
+
+    # Compute Bi = {l in lower_bounds | yi = li and y(_i) > l(_i)} for i = 1, 2, ..., nobj
+    # where y(_i) = (y1, ..., yi-1, y(i+1), ..., ym)
+    B = [np.zeros(nlower_bounds, dtype=bool) for _ in range(nobj)]
+    for i in range(nobj):
+        for ind in range(nlower_bounds):
+            if y[i] != L[ind][i]:
+                continue
+            append_to_Bi = (y[0:i] > L[ind, 0:i]).all()
+            if not append_to_Bi:
+                continue
+            append_to_Bi = (y[i + 1 :] > L[ind, i + 1 :]).all()
+            B[i][ind] = append_to_Bi
+
+    # Compute Pi for i = 1, 2, ..., nobj: generate all projections of y on the local lower bounds of A
+    P = [np.copy(L[A_indexes]) for _ in range(nobj)]
+    for i in range(nobj):
+        P[i][:, i] = y[i]
+
+    # Filter out all redundant points of P: Pi = {l in Pi | l not >= l' for all l' in Pi cup Bi, l' != l}
+    # for i = 1, 2, ..., m
+    P_indexes = [np.ones(P[i].shape[0], dtype=bool) for i in range(nobj)]
+    for i in range(nobj):
+        # Remove all dominated points from Pi by the ones of Pi
+        for ind1 in range(P[i].shape[0]):
+            # The point is already dominated
+            if not P_indexes[i][ind1]:
+                continue
+
+            for ind2 in range(ind1):
+                comparison_status = compare_objective_vectors(
+                    P[i][ind1], P[i][ind2], nobj
+                )
+                # Point at index ind1 is dominated
+                if comparison_status == 1:
+                    P_indexes[i][ind1] = False
+                    break
+                # Point pind1 dominates or is equal to point pind2
+                elif comparison_status == 2 or comparison_status == 3:
+                    P_indexes[i][ind2] = False
+
+            # no need to keep on iterating, the point pind1 is dominated
+            if not P_indexes[i][ind1]:
+                continue
+
+            for ind2 in range(ind1 + 1, P[i].shape[0]):
+                comparison_status = compare_objective_vectors(
+                    P[i][ind1], P[i][ind2], nobj
+                )
+                # Point at index ind1 is dominated
+                if comparison_status == 1:
+                    P_indexes[i][ind1] = False
+                    break
+                # Point pind1 dominates or is equal to point pind2
+                elif comparison_status == 2 or comparison_status == 3:
+                    P_indexes[i][ind2] = False
+
+        # Remove points of Pi dominated by points of Bi
+        for ind1 in range(P[i].shape[0]):
+            # The point is already dominated
+            if not P_indexes[i][ind1]:
+                continue
+
+            for ind2 in range(nlower_bounds):
+                if not B[i][ind2]:
+                    continue
+
+                comparison_status = compare_objective_vectors(P[i][ind1], L[ind2], nobj)
+                # Point at index ind1 is dominated by another point of Bi or equal
+                if comparison_status == 1 or comparison_status == 3:
+                    P_indexes[i][ind1] = False
+                    break
+
+    for i in range(nobj):
+        P[i] = P[i][P_indexes[i]]
+
+    # new_lower_bounds = (lower_bounds \ A) cup P
+    new_lower_bounds = []
+    for l, is_in_A in zip(lower_bounds, A_indexes.tolist()):
+        if not is_in_A:
+            new_lower_bounds.append(np.copy(l))
+    for i in range(nobj):
+        for ind in range(P[i].shape[0]):
+            new_lower_bounds.append(np.copy(P[i][ind]))
+
+    return new_lower_bounds
+
+
+def update_local_upper_bounds(
+    upper_bounds: List[np.ndarray], y: np.ndarray, nobj: int
+) -> List[np.ndarray]:
+    """Update a local upper bounds set.
+
+    Given an objective vector, update a set of local upper bounds of a
+    multiobjective problem.
+
+    The implementation follows the description of Algorithm 1 given in:
+    Eichfelder, G., & Warnow, L. (2023).
+    "Advancements in the computation of enclosures for multi-objective optimization problems."
+    European Journal of Operational Research, 310(1), p. 315-327.
+    https://doi.org/10.1016/j.ejor.2023.02.032
+
+    The algorithm is not implemented in a Python class to be the most efficient possible.
+    It is the responsability of the user to assure the arguments satisfy the correct assumptions.
+
+    Arguments
+    ---------
+    upper_bounds: list[np.ndarray]
+        The set of local upper bounds. Each objective vector is of dimension nobj
+    y: np.ndarray
+        An update point of dimension nobj.
+
+    Returns
+    -------
+    list[np.ndarray]
+       The set of local upper bounds updated.
+    """
+    # Compute A = {u in upper_bounds | y < u}: Search zones that contain y
+    U = np.array(upper_bounds)
+    nupper_bounds = U.shape[0]
+    A_indexes = np.zeros(nupper_bounds, dtype=bool)
+    for ind in range(nupper_bounds):
+        if (y < U[ind]).all():
+            A_indexes[ind] = True
+
+    # Compute Bi = {u in upper_bounds | yi = ui and y(_i) < u(_i)} for i = 1, 2, ..., nobj
+    # where u(_i) = (y1, ..., yi-1, u(i+1), ..., ym)
+    B = [np.zeros(nupper_bounds, dtype=bool) for _ in range(nobj)]
+    for i in range(nobj):
+        for ind in range(nupper_bounds):
+            if y[i] != U[ind][i]:
+                continue
+            append_to_Bi = (y[0:i] < U[ind, 0:i]).all()
+            if not append_to_Bi:
+                continue
+            append_to_Bi = (y[i + 1 :] < U[ind, i + 1 :]).all()
+            B[i][ind] = append_to_Bi
+
+    # Compute Pi for i = 1, 2, ..., nobj: generate all projections of y on the local upper bounds of A
+    P = [np.copy(U[A_indexes]) for _ in range(nobj)]
+    for i in range(nobj):
+        P[i][:, i] = y[i]
+
+    # Filter out all redundant points of P: Pi = {u in Pi | u not <= u' for all u' in Pi cup Bi, u' != u}
+    # for i = 1, 2, ..., m
+    P_indexes = [np.ones(P[i].shape[0], dtype=bool) for i in range(nobj)]
+    for i in range(nobj):
+        for ind1 in range(P[i].shape[0]):
+            # The point has been already processed
+            if not P_indexes[i][ind1]:
+                continue
+
+            for ind2 in range(ind1):
+                comparison_status = compare_objective_vectors(
+                    P[i][ind1], P[i][ind2], nobj
+                )
+                # Point at index ind1 is dominating
+                if comparison_status == 3:
+                    P_indexes[i][ind1] = False
+                    break
+                # Point pind2 dominates or equals point pind1
+                elif comparison_status == 1 or comparison_status == 3:
+                    P_indexes[i][ind2] = False
+
+            # no need to continue, the point pind1 is dominating
+            if not P_indexes[i][ind1]:
+                continue
+
+            for ind2 in range(ind1 + 1, P[i].shape[0]):
+                comparison_status = compare_objective_vectors(
+                    P[i][ind1], P[i][ind2], nobj
+                )
+                # Point at index ind1 is dominating
+                if comparison_status == 3:
+                    P_indexes[i][ind1] = False
+                    break
+                # Point pind2 dominates or equals point pind1
+                elif comparison_status == 1 or comparison_status == 3:
+                    P_indexes[i][ind2] = False
+
+        # Filter out redundant points of Pi by Bi
+        for ind1 in range(P[i].shape[0]):
+            # The point is already dominated
+            if not P_indexes[i][ind1]:
+                continue
+
+            for ind2 in range(nupper_bounds):
+                if not B[i][ind2]:
+                    continue
+
+                comparison_status = compare_objective_vectors(P[i][ind1], U[ind2], nobj)
+                # Point pind1 dominates or equals a point in B
+                if comparison_status == 1 or comparison_status == 3:
+                    P_indexes[i][ind1] = False
+                    break
+
+    for i in range(nobj):
+        P[i] = P[i][P_indexes[i]]
+
+    # new_upper_bounds = (upper_bounds \ A) cup P
+    new_upper_bounds = []
+    for l, is_in_A in zip(upper_bounds, A_indexes.tolist()):
+        if not is_in_A:
+            new_upper_bounds.append(np.copy(l))
+    for i in range(nobj):
+        for ind in range(P[i].shape[0]):
+            new_upper_bounds.append(np.copy(P[i][ind]))
+
+    return new_upper_bounds
+
+
+def compare_objective_vectors(y1: np.ndarray, y2: np.ndarray, nobj: int) -> int:
+    """Compare two objective vectors according to Pareto dominance.
+
+    Arguments
+    ---------
+    y1: np.ndarray
+        The first objective vector.
+    y2: np.ndarray
+        The second objective vector.
+    nobj: int
+        The number of objectives.
+
+    Returns
+    -------
+    int:
+       0 if y1 is non-dominated by y2;
+       1 if y1 is dominated by y2;
+       2 if y1 is dominating y2;
+       3 if y1 and y2 are equal.
+    """
+    is_better = False
+    is_worse = False
+    for obj in range(nobj):
+        if y1[obj] < y2[obj]:
+            is_better = True
+        if y2[obj] < y1[obj]:
+            is_worse = True
+        if is_worse and is_better:
+            break
+    if is_worse:
+        if is_better:
+            # non-dominated
+            return 0
+        else:
+            # dominated
+            return 1
+    else:
+        if is_better:
+            # dominating
+            return 2
+        else:
+            # equal
+            return 3

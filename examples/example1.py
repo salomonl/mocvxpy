@@ -21,6 +21,9 @@ status, solution = solver.solve()
 solver = mocp.MOVSSolver(objectives, constraints)
 status, solution = solver.solve()
 
+solver = mocp.ADENASolver(objectives, constraints)
+status, solution = solver.solve()
+
 # pb = mocp.Problem(objectives, constraints)
 
 ax = plt.figure().add_subplot()
