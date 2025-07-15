@@ -17,7 +17,7 @@ objectives = [cp.Minimize(x[0]),
               cp.Minimize(x[2])]
 constraints = [(x[0] -1)**2 + ((x[1] - 1) / a)**2 + ((x[2] - 1) / 5)**2 <= 1]
 
-solver = mocp.MOSVSolver(objectives, constraints)
+solver = mocp.MOVSSolver(objectives, constraints)
 status, solution = solver.solve()
 
 solver = mocp.MONMOSolver(objectives, constraints)
