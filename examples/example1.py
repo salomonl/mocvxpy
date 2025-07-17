@@ -12,21 +12,22 @@ n = 2
 x = mocp.Variable(n)
 
 objectives = [cp.Minimize(x[0]), cp.Minimize(x[1])]
-constraints = [x >= 0,
-               cp.sum_squares(x - 1) <= 1]
+constraints = [x >= 0, cp.sum_squares(x - 1) <= 1]
 
-solver = mocp.MONMOSolver(objectives, constraints)
-status, solution = solver.solve()
+pb = mocp.Problem(objectives, constraints)
 
-solver = mocp.MOVSSolver(objectives, constraints)
-status, solution = solver.solve()
+objective_values = pb.solve(solver="MONMO")
+print("status: ", pb.status)
 
-solver = mocp.ADENASolver(objectives, constraints)
-status, solution = solver.solve()
+objective_values = pb.solve(solver="MOVS")
+print("status: ", pb.status)
 
-# pb = mocp.Problem(objectives, constraints)
+objective_values = pb.solve(solver="ADENA")
+print("status: ", pb.status)
 
 ax = plt.figure().add_subplot()
-ax.scatter([vertex[0] for vertex in solution.objective_values],
-           [vertex[1] for vertex in solution.objective_values])
+ax.scatter(
+    [vertex[0] for vertex in objective_values],
+    [vertex[1] for vertex in objective_values],
+)
 plt.show()

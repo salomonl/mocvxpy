@@ -9,6 +9,13 @@ import numpy as np
 from cvxpy.constraints import Equality
 from cvxpy.utilities.deterministic import unique_list
 from cvxpy.utilities import performance_utils as perf
+from mocvxpy.expressions.order_cone import OrderCone
+from mocvxpy.solvers.defines import (
+    MO_SEQUENTIAL_SOLVERS,
+    MO_SEQUENTIAL_SOLVERS_MAP,
+    VO_SEQUENTIAL_SOLVERS,
+    VO_SEQUENTIAL_SOLVERS_MAP,
+)
 from typing import Dict, List, Optional, Union
 
 
@@ -27,6 +34,7 @@ class Problem:
         self,
         objectives: List[Union[cp.Minimize, cp.Maximize]],
         constraints: Optional[List[cp.Constraint]] = None,
+        order_cone: Optional[OrderCone] = None,
     ) -> None:
         if constraints is None:
             constraints = []
@@ -51,8 +59,10 @@ class Problem:
         for constraint in constraints:
             cstr = constraint
             cstr._values = None
-            cstr._values = property(lambda self: self._values)
+            cstr.values = property(lambda self: self._values)
             self._constraints.append(cstr)
+
+        self._order_cone = order_cone
 
         self._status: Optional[str] = None
         self._objective_values = None
@@ -70,7 +80,7 @@ class Problem:
             return self._objective_values
 
     @property
-    def status(self) -> str:
+    def status(self) -> Optional[str]:
         """str : The status from the last time the problem was solved; one
         of optimal, infeasible, or unbounded (with or without
         suffix inaccurate).
@@ -288,14 +298,79 @@ class Problem:
         return list(const_dict.values())
 
     def solve(self, *args, **kwargs):
-        pass
+        """Solve the problem using the specified method.
+
+        Populates the :code:`status` and :code:`objective_values` attributes on the
+        problem object as a side-effect.
+
+        Arguments
+        ---------
+        solver: str, optional.
+            The solver to use. For example, "ADENA", "MONMO" or "MOVS". Use MOVS by default.
+        verbose: bool, optional.
+            If True, displays information on the progression of the algorithm.
+        """
+        solver_name = kwargs.get("solver", None)
+        if solver_name is None:
+            solver_name = "MOVS"
+        if self._order_cone is None:
+            if solver_name not in MO_SEQUENTIAL_SOLVERS:
+                raise ValueError("Solver not supported ", solver_name)
+        else:
+            if solver_name not in VO_SEQUENTIAL_SOLVERS:
+                raise ValueError(
+                    "Solver not supported for vector optimization", solver_name
+                )
+
+        if self._order_cone is None:
+            solver = MO_SEQUENTIAL_SOLVERS_MAP[solver_name](
+                self._objectives, self._constraints
+            )
+        else:
+            solver = VO_SEQUENTIAL_SOLVERS_MAP[solver_name](
+                self._objectives, self._constraints, self._order_cone
+            )
+
+        self._status, sol = solver.solve()
+
+        # Populate optimal decision variables
+        nsolutions = sol.xvalues.shape[0]
+        var_index = 0
+        for var_ in self.variables():
+            nvalues = var_.size
+            opt_values = sol.xvalues[:, var_index : var_index + nvalues]
+            # Fit the dimensions of the array of optimal values to their corresponding variables
+            dims = var_.shape
+            opt_values = np.reshape(opt_values, (nsolutions,) + dims)
+            var_.values = opt_values
+
+        # Populate optimal objective values
+        for obj in range(len(self._objectives)):
+            self._objectives[obj].values = sol.objective_values[:, obj]
+
+        # Populate optimal constraint values
+        for constraint in self._constraints:
+            constraint.values = []
+            for var_ in self.variables():
+                for opt_value in var_.values:
+                    var_.value = opt_value
+                    constraint.values.append(constraint.expr.value)
+            constraint.values = np.asarray(constraint.values)
+
+        self._objective_values = sol.objective_values
+
+        return self._objective_values
 
     def _clear_solution(self) -> None:
         for v in self.variables():
             v.save_value(None)
+            v.values = None
         for c in self.constraints:
+            c.values = None
             for dv in c.dual_variables:
                 dv.save_value(None)
+        for objective in self._objectives:
+            objective.values = None
         self._objective_values = None
         self._status = None
         self._solutions = None

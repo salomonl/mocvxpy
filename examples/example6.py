@@ -3,7 +3,8 @@ import mocvxpy as mocp
 import numpy as np
 
 import matplotlib as mpl
-mpl.use('macosx')
+
+mpl.use("macosx")
 from matplotlib import pyplot as plt
 
 # Solve:
@@ -27,18 +28,17 @@ constraints = [cp.sum_squares(x - np.ones(n)) <= 1]
 #                                                     [0, 1, 2],
 #                                                     [0, 4, 2]]))
 
-C = mocp.compute_order_cone_from_its_rays(np.array([[-1, -1, 3],
-                                                    [2, 2, -1],
-                                                    [1, 0, 0],
-                                                    [0, -1, 2],
-                                                    [-1, 0, 2],
-                                                    [0, 1, 0]]))
+C = mocp.compute_order_cone_from_its_rays(
+    np.array([[-1, -1, 3], [2, 2, -1], [1, 0, 0], [0, -1, 2], [-1, 0, 2], [0, 1, 0]])
+)
 
-# solver = mocp.MOVSSolver(objectives, constraints, C)
-# status, solution = solver.solve()
+pb = mocp.Problem(objectives, constraints, C)
 
-solver = mocp.MONMOSolver(objectives, constraints, C)
-status, solution = solver.solve()
+objective_values = pb.solve(solver="MOVS")
+print("status: ", pb.status)
+
+objective_values = pb.solve(solver="MONMO")
+print("status: ", pb.status)
 
 # ax = plt.figure().add_subplot()
 # ax.scatter([vertex[0] for vertex in solution.objective_values],
@@ -46,7 +46,9 @@ status, solution = solver.solve()
 # plt.show()
 
 ax = plt.figure().add_subplot(projection="3d")
-ax.scatter([vertex[0] for vertex in solution.objective_values],
-           [vertex[1] for vertex in solution.objective_values],
-           [vertex[2] for vertex in solution.objective_values])
+ax.scatter(
+    [vertex[0] for vertex in objective_values],
+    [vertex[1] for vertex in objective_values],
+    [vertex[2] for vertex in objective_values],
+)
 plt.show()

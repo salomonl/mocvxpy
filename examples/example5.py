@@ -2,7 +2,8 @@ import cvxpy as cp
 import mocvxpy as mocp
 
 import matplotlib as mpl
-mpl.use('macosx')
+
+mpl.use("macosx")
 from matplotlib import pyplot as plt
 
 # Solve:
@@ -12,19 +13,21 @@ a = 7.0
 n = 3
 x = mocp.Variable(n)
 
-objectives = [cp.Minimize(x[0]),
-              cp.Minimize(x[1]),
-              cp.Minimize(x[2])]
-constraints = [(x[0] -1)**2 + ((x[1] - 1) / a)**2 + ((x[2] - 1) / 5)**2 <= 1]
+objectives = [cp.Minimize(x[0]), cp.Minimize(x[1]), cp.Minimize(x[2])]
+constraints = [(x[0] - 1) ** 2 + ((x[1] - 1) / a) ** 2 + ((x[2] - 1) / 5) ** 2 <= 1]
 
-solver = mocp.MOVSSolver(objectives, constraints)
-status, solution = solver.solve()
+pb = mocp.Problem(objectives, constraints)
 
-solver = mocp.MONMOSolver(objectives, constraints)
-status, solution = solver.solve()
+objective_values = pb.solve(solver="MOVS")
+print("status: ", pb.status)
+
+objective_values = pb.solve(solver="MONMO")
+print("status: ", pb.status)
 
 ax = plt.figure().add_subplot(projection="3d")
-ax.scatter([vertex[0] for vertex in solution.objective_values],
-           [vertex[1] for vertex in solution.objective_values],
-           [vertex[2] for vertex in solution.objective_values])
+ax.scatter(
+    [vertex[0] for vertex in objective_values],
+    [vertex[1] for vertex in objective_values],
+    [vertex[2] for vertex in objective_values],
+)
 plt.show()

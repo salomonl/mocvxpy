@@ -27,3 +27,14 @@ class Variable(cp.Variable):
         Each value corresponds to an optimal value of a multiobjective problem.
         """
         return self._values
+
+    @values.setter
+    def values(self, vals: np.ndarray) -> None:
+        """Setter method for variable values.
+
+        Arguments
+        -------
+        vals: np.ndarray
+            The optimal values corresponding to the variable.
+        """
+        self._values = vals

@@ -13,18 +13,23 @@ from matplotlib import pyplot as plt
 #      3 x2 + x2 + x3 + 2 x4 + 4 x5 + 4 x6 >= 0
 n = 6
 x = mocp.Variable(n)
-objectives = [cp.Minimize(cp.exp(x[0]) + cp.exp(x[3])),
-              cp.Minimize(cp.exp(x[1]) + cp.exp(x[4])),
-              cp.Minimize(cp.exp(x[2]) + cp.exp(x[5]))]
-constraints = [np.array([[1, 1, 1, 0, 0, 0],
-                         [3, 6, 3, 4, 1, 1],
-                         [3, 1, 1, 2, 4, 4]]) @ x >= 0]
+objectives = [
+    cp.Minimize(cp.exp(x[0]) + cp.exp(x[3])),
+    cp.Minimize(cp.exp(x[1]) + cp.exp(x[4])),
+    cp.Minimize(cp.exp(x[2]) + cp.exp(x[5])),
+]
+constraints = [
+    np.array([[1, 1, 1, 0, 0, 0], [3, 6, 3, 4, 1, 1], [3, 1, 1, 2, 4, 4]]) @ x >= 0
+]
 
-solver = mocp.MOVSSolver(objectives, constraints)
-status, solution = solver.solve()
+pb = mocp.Problem(objectives, constraints)
+objective_values = pb.solve(solver="MOVS")
+print("status: ", pb.status)
 
 ax = plt.figure().add_subplot(projection="3d")
-ax.scatter([vertex[0] for vertex in solution.objective_values],
-           [vertex[1] for vertex in solution.objective_values],
-           [vertex[2] for vertex in solution.objective_values])
+ax.scatter(
+    [vertex[0] for vertex in objective_values],
+    [vertex[1] for vertex in objective_values],
+    [vertex[2] for vertex in objective_values],
+)
 plt.show()
