@@ -188,7 +188,12 @@ class ADENASolver:
 
                 # Update solution
                 opt_obj_values = sup_pb.objective_values()
-                sol.insert_solution(sup_pb.solution(), opt_obj_values)
+                sol.insert_solution(
+                    sup_pb.solution(),
+                    opt_obj_values,
+                    sup_pb.dual_objective_values(),
+                    sup_pb.dual_constraint_values(),
+                )
 
                 # Update lower and upper bound sets
                 t_opt = sup_pb.value()
@@ -243,6 +248,17 @@ class ADENASolver:
         init_phase_result = compute_extreme_objective_vectors(
             self._objectives, self._constraints
         )
-        for opt_values, obj_values in zip(init_phase_result[1], init_phase_result[2]):
-            sol.insert_solution(opt_values, obj_values)
+        for ind, opt_values in enumerate(
+            zip(init_phase_result[1], init_phase_result[2], init_phase_result[3])
+        ):
+            if init_phase_result[4] is None:
+                sol.insert_solution(opt_values[0], opt_values[1], opt_values[2])
+            else:
+                sol.insert_solution(
+                    opt_values[0],
+                    opt_values[1],
+                    opt_values[2],
+                    init_phase_result[4][ind],
+                )
+
         return init_phase_result[0], sol

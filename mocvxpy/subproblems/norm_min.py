@@ -113,13 +113,37 @@ class NormMinSubproblem(Subproblem):
 
         return dual_obj_constraints_vals
 
+    def dual_constraint_values(self) -> Optional[np.ndarray]:
+        """Returns the dual values associated to the constraints of the subproblem.
+
+        Warning! It is the responsability of the user to call the solve() method
+        before calling this method and to check the resolution has worked. Otherwise,
+        the values are likely to be wrong.
+        """
+        Z = None if self._order_cone is None else self._order_cone.inequalities
+        if Z is None:
+            nobj = len(self._objectives)
+            noriginal_cons = len(self._constraints) - nobj
+        else:
+            noriginal_cons = len(self._constraints) - Z.shape[0]
+        if noriginal_cons == 0:
+            return None
+
+        dual_constraint_values = []
+        for constraint in self._constraints[:noriginal_cons]:
+            if isinstance(constraint.dual_value, float):
+                dual_constraint_values += [constraint.dual_value]
+            else:
+                dual_constraint_values += constraint.dual_value.tolist()
+        return np.asarray(dual_constraint_values)
+
 
 def solve_norm_min_subproblem(
     outer_vertex: np.ndarray,
     objectives: List[Union[cp.Minimize, cp.Maximize]],
     constraints: Optional[List[cp.Constraint]] = None,
     order_cone: Optional[OrderCone] = None,
-) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, float]:
+) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, float, Optional[np.ndarray]]:
     """Solve the norm minimization subproblem.
 
     Solve min || z ||
@@ -148,9 +172,10 @@ def solve_norm_min_subproblem(
 
     Returns
     -------
-    Tuple[str, np.ndarray, np.ndarray, np.ndarray, float]
+    Tuple[str, np.ndarray, np.ndarray, np.ndarray, float, optional[np.ndarray]]
         The status of the optimization, the optimal solution values, the optimal objective values,
-        the dual objective values and the optimal value of the norm min subproblem.
+        the dual objective values, the optimal value of the norm min subproblem and the dual
+        values of the constraints (if they exist).
     """
     norm_min_pb = NormMinSubproblem(objectives, constraints, order_cone)
     norm_min_pb.parameters = outer_vertex
@@ -162,6 +187,7 @@ def solve_norm_min_subproblem(
             norm_min_pb.objective_values(),
             norm_min_pb.dual_objective_values(),
             norm_min_pb.value(),
+            norm_min_pb.dual_constraint_values(),
         )
     else:
         return (
@@ -170,4 +196,5 @@ def solve_norm_min_subproblem(
             np.ndarray([]),
             np.ndarray([]),
             -1.0,
+            np.ndarray([]),
         )

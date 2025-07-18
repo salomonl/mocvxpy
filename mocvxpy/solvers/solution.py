@@ -33,6 +33,8 @@ class Solution:
         self._nobj = nobj
         self._xvalues = np.array([], dtype=np.float64).reshape((0, nvars))
         self._objective_values = np.array([], dtype=np.float64).reshape((0, nobj))
+        self._dual_objective_values = np.array([], dtype=np.float64).reshape((0, nobj))
+        self._dual_constraint_values = None
 
     @property
     def xvalues(self) -> np.ndarray:
@@ -56,7 +58,29 @@ class Solution:
         """
         return self._objective_values
 
-    def insert_solution(self, x: np.ndarray, fvalues: np.ndarray) -> None:
+    @property
+    def dual_objective_values(self) -> np.ndarray:
+        """Accessor method for dual objective values.
+
+        Returns
+        -------
+        np.ndarray
+           A matrix of dual objective values (weights) of dimensions |X| x nobj
+        """
+        return self._dual_objective_values
+
+    @property
+    def dual_constraint_values(self) -> Optional[np.ndarray]:
+        """Accessor method for dual objective values.
+
+        Returns
+        -------
+        Optional[np.ndarray]
+           A matrix of dual constraint values (weights) of dimensions |X| x cdims
+        """
+        return self._dual_constraint_values
+
+    def insert_solution(self, x: np.ndarray, fvalues: np.ndarray, dual_fvalues: np.ndarray, dual_values: Optional[np.ndarray] = None) -> None:
         """Insert solution into the Solution set.
 
         Arguments
@@ -68,6 +92,12 @@ class Solution:
         fvalues: np.ndarray
            A objective vector: it is the responsability from the user to check
            it is non dominated
+
+        dual_fvalues: np.ndarray
+           The corresponding dual objective values.
+
+        dual_values: Optional[np.ndarray]
+           The dual constraint values.
         """
         if x.shape != (self._nvars,):
             raise ValueError(
@@ -79,9 +109,32 @@ class Solution:
                 "The dimensions of fvalues are not compatible with the other objective vectors",
                 fvalues.shape,
             )
+        if dual_fvalues.shape != (self._nobj,):
+            raise ValueError(
+                "The dimensions of dual_fvalues are not compatible with the other dual objective vectors",
+                dual_fvalues.shape,
+            )
+        if dual_values is None:
+            if self._dual_constraint_values is not None:
+                raise ValueError("Dual values for constraints must be provided")
+        else:
+            if self._dual_constraint_values is not None:
+                ncons = self._dual_constraint_values.shape[1]
+                if dual_values.shape != (ncons, ):
+                    raise ValueError(
+                        "The dimensions of dual_values are not compatible with the other dual vectors",
+                        dual_values.shape,
+                    )
 
         self._xvalues = np.vstack([self._xvalues, x])
         self._objective_values = np.vstack([self._objective_values, fvalues])
+        self._dual_objective_values = np.vstack([self._dual_objective_values, dual_fvalues])
+        if self._dual_constraint_values is None:
+            self._dual_constraint_values = dual_values
+            if self._dual_constraint_values is not None:
+                self._dual_constraint_values = np.reshape(self._dual_constraint_values, (1, self._dual_constraint_values.size))
+        else:
+            self._dual_constraint_values = np.vstack([self._dual_constraint_values, dual_values])
 
     def compute_hrepresentation_from_objective_values(
         self,

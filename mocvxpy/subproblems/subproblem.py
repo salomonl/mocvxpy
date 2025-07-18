@@ -2,7 +2,7 @@ import abc
 import cvxpy as cp
 import numpy as np
 
-from copy import copy
+from copy import copy, deepcopy
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import (
     extract_variables_from_problem,
@@ -113,6 +113,16 @@ class Subproblem(metaclass=abc.ABCMeta):
     def dual_objective_values(self) -> np.ndarray:
         """Returns the dual values associated to the ``objective constraints''
         of the subproblem.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def dual_constraint_values(self) -> Optional[np.ndarray]:
+        """Returns the dual values associated to the constraints of the subproblem.
+
+        Warning! It is the responsability of the user to call the solve() method
+        before calling this method and to check the resolution has worked. Otherwise,
+        the values are likely to be wrong.
         """
         raise NotImplementedError()
 

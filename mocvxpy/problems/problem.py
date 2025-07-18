@@ -47,12 +47,14 @@ class Problem:
                 )
 
         # Constraints and objective are immutable.
-        # We add a values field to them by monkey patching
+        # We add a values and dual_values field to them by monkey patching
         self._objectives = []
         for objective in objectives:
             obj = objective
             obj._values = None
             obj.values = property(lambda self: self._values)
+            obj._dual_values = None
+            obj.dual_values = property(lambda self: self._dual_values)
             self._objectives.append(obj)
 
         self._constraints = []
@@ -60,6 +62,9 @@ class Problem:
             cstr = constraint
             cstr._values = None
             cstr.values = property(lambda self: self._values)
+            cstr._dual_values = None
+            cstr.dual_values = property(lambda self: self._dual_values)
+
             self._constraints.append(cstr)
 
         self._order_cone = order_cone
@@ -343,10 +348,15 @@ class Problem:
             dims = var_.shape
             opt_values = np.reshape(opt_values, (nsolutions,) + dims)
             var_.values = opt_values
+            var_index += nvalues
 
         # Populate optimal objective values
         for obj in range(len(self._objectives)):
             self._objectives[obj].values = sol.objective_values[:, obj]
+
+        # Populate optimal dual objective values
+        for obj in range(len(self._objectives)):
+            self._objectives[obj].dual_values = sol.dual_objective_values[:, obj]
 
         # Populate optimal constraint values
         for constraint in self._constraints:
@@ -356,6 +366,15 @@ class Problem:
                     var_.value = opt_value
                     constraint.values.append(constraint.expr.value)
             constraint.values = np.asarray(constraint.values)
+
+        # Populate optimal dual constraint values
+        cons_index = 0
+        for constraint in self._constraints:
+            ncons = constraint.size
+            constraint.dual_values = sol.dual_constraint_values[
+                :, cons_index : cons_index + ncons
+            ]
+            cons_index += ncons
 
         self._objective_values = sol.objective_values
 
@@ -367,10 +386,12 @@ class Problem:
             v.values = None
         for c in self.constraints:
             c.values = None
+            c.dual_values = None
             for dv in c.dual_variables:
                 dv.save_value(None)
         for objective in self._objectives:
             objective.values = None
+            objective.dual_values = None
         self._objective_values = None
         self._status = None
         self._solutions = None

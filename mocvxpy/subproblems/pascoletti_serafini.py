@@ -123,6 +123,30 @@ class PascolettiSerafiniSubproblem(Subproblem):
 
         return dual_obj_constraints_vals
 
+    def dual_constraint_values(self) -> Optional[np.ndarray]:
+        """Returns the dual values associated to the constraints of the subproblem.
+
+        Warning! It is the responsability of the user to call the solve() method
+        before calling this method and to check the resolution has worked. Otherwise,
+        the values are likely to be wrong.
+        """
+        Z = None if self._order_cone is None else self._order_cone.inequalities
+        if Z is None:
+            nobj = len(self._objectives)
+            noriginal_cons = len(self._constraints) - nobj
+        else:
+            noriginal_cons = len(self._constraints) - Z.shape[0]
+        if noriginal_cons == 0:
+            return None
+
+        dual_constraint_values = []
+        for constraint in self._constraints[:noriginal_cons]:
+            if isinstance(constraint.dual_value, float):
+                dual_constraint_values += [constraint.dual_value]
+            else:
+                dual_constraint_values += constraint.dual_value.tolist()
+        return np.asarray(dual_constraint_values)
+
 
 def solve_pascoletti_serafini_subproblem(
     outer_vertex: np.ndarray,
@@ -130,7 +154,7 @@ def solve_pascoletti_serafini_subproblem(
     objectives: List[Union[cp.Minimize, cp.Maximize]],
     constraints: Optional[List[cp.Constraint]] = None,
     order_cone: Optional[OrderCone] = None,
-) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, float]:
+) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, float, Optional[np.ndarray]]:
     """Solve the Pascoletti-Serafini subproblem.
 
     Solve: min z
@@ -175,6 +199,7 @@ def solve_pascoletti_serafini_subproblem(
             ps_pb.objective_values(),
             ps_pb.dual_objective_values(),
             ps_pb.value(),
+            ps_pb.dual_constraint_values(),
         )
     else:
         return (
@@ -183,4 +208,5 @@ def solve_pascoletti_serafini_subproblem(
             np.ndarray([]),
             np.ndarray([]),
             -1.0,
+            np.ndarray([]),
         )

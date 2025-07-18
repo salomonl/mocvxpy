@@ -237,7 +237,12 @@ class MONMOParSolver:
                 # Update solution
                 opt_obj_values = optimization_logs[2]
                 w_opt = optimization_logs[3]
-                sol.insert_solution(optimization_logs[1], optimization_logs[2])
+                sol.insert_solution(
+                    optimization_logs[1],
+                    optimization_logs[2],
+                    w_opt if Z is None else Z.T @ w_opt,
+                    optimization_logs[5],
+                )
 
                 opt_val = optimization_logs[4]
                 if opt_val <= scaled_stopping_tol:
@@ -369,7 +374,12 @@ class MONMOParSolver:
             single_obj_status = optimization_logs[0]
 
             if single_obj_status == "solved":
-                sol.insert_solution(optimization_logs[1], optimization_logs[2])
+                sol.insert_solution(
+                    optimization_logs[1],
+                    optimization_logs[2],
+                    optimization_logs[3],
+                    optimization_logs[4],
+                )
                 continue
 
             if single_obj_status == "infeasible":

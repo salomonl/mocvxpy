@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple, Union
 def compute_extreme_objective_vectors(
     objectives: List[Union[cp.Minimize, cp.Maximize]],
     constraints: Optional[List[cp.Constraint]],
-) -> Tuple[str, np.ndarray, np.ndarray]:
+) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """Compute extreme solutions of a multiobjective problem.
 
     Solve min fi(x) for i = 1, 2, ..., m
@@ -27,15 +27,19 @@ def compute_extreme_objective_vectors(
 
     Returns
     -------
-    Tuple[str, np.ndarray, np.ndarray]
+    Tuple[str, np.ndarray, np.ndarray, np.ndarray, optional[np.ndarray]
         The status of this step ("solved", "unbounded", "unfeasible"),
-        the set of solutions associated and their respective objective values.
+        the set of solutions associated, their respective objective values,
+        their respective dual objective values and their respective dual constraint values,
+        if they exist.
     """
     nobj = len(objectives)
     if nobj <= 1:
         raise ValueError("The number of objectives must be superior to 1", nobj)
     solutions = []
     objective_values = []
+    dual_objective_values = []
+    dual_constraint_values = []
 
     single_obj_pb = OneObjectiveSubproblem(objectives, constraints)
     status = "not_defined"
@@ -48,6 +52,12 @@ def compute_extreme_objective_vectors(
         if single_obj_status not in ["infeasible", "unbounded"]:
             solutions.append(single_obj_pb.solution())
             objective_values.append(single_obj_pb.objective_values())
+            dual_objective_values.append(
+                np.array([1.0 if i == obj else 0.0 for i in range(nobj)])
+            )
+            dual_values = single_obj_pb.dual_constraint_values()
+            if dual_values is not None:
+                dual_constraint_values.append(dual_values)
             continue
 
         status = single_obj_status
@@ -55,10 +65,26 @@ def compute_extreme_objective_vectors(
             status,
             np.array([]) if len(solutions) == 0 else np.vstack(solutions),
             np.array([]) if len(objective_values) == 0 else np.vstack(objective_values),
+            (
+                np.array([])
+                if len(dual_objective_values) == 0
+                else np.vstack(dual_objective_values)
+            ),
+            (
+                None
+                if len(dual_constraint_values) == 0
+                else np.vstack(dual_constraint_values)
+            ),
         )
 
     status = "solved"
-    return status, np.vstack(solutions), np.vstack(objective_values)
+    return (
+        status,
+        np.vstack(solutions),
+        np.vstack(objective_values),
+        np.vstack(dual_objective_values),
+        None if len(dual_constraint_values) == 0 else np.vstack(dual_constraint_values),
+    )
 
 
 def compute_extreme_points_hyperplane(extreme_pts: np.ndarray) -> Optional[np.ndarray]:

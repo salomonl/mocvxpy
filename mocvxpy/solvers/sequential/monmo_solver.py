@@ -221,7 +221,13 @@ class MONMOSolver:
 
                 # Update solution
                 opt_obj_values = norm_min_pb.objective_values()
-                sol.insert_solution(norm_min_pb.solution(), opt_obj_values)
+                w_opt = norm_min_pb.dual_objective_values()
+                sol.insert_solution(
+                    norm_min_pb.solution(),
+                    opt_obj_values,
+                    w_opt if Z is None else Z.T @ w_opt,
+                    norm_min_pb.dual_constraint_values(),
+                )
 
                 opt_val = norm_min_pb.value()
                 if opt_val <= scaled_stopping_tol:
@@ -230,7 +236,6 @@ class MONMOSolver:
                     haussdorf_dist = max(haussdorf_dist, opt_val)
                 else:
                     # Update information of explored vertices
-                    w_opt = norm_min_pb.dual_objective_values()
                     explored_outer_vertices_information.append(
                         (v, opt_obj_values, w_opt, opt_val)
                     )
@@ -341,10 +346,19 @@ class MONMOSolver:
             init_phase_result = compute_extreme_objective_vectors(
                 self._objectives, self._constraints
             )
-            for opt_values, obj_values in zip(
-                init_phase_result[1], init_phase_result[2]
+            for ind, opt_values in enumerate(
+                zip(init_phase_result[1], init_phase_result[2], init_phase_result[3])
             ):
-                sol.insert_solution(opt_values, obj_values)
+                if init_phase_result[4] is None:
+                    sol.insert_solution(opt_values[0], opt_values[1], opt_values[2])
+                else:
+                    sol.insert_solution(
+                        opt_values[0],
+                        opt_values[1],
+                        opt_values[2],
+                        init_phase_result[4][ind],
+                    )
+
             return init_phase_result[0], sol
 
         status = "solved"
@@ -354,7 +368,10 @@ class MONMOSolver:
             weighted_sum_status = weighted_sum_pb.solve()
             if weighted_sum_status == "solved":
                 sol.insert_solution(
-                    weighted_sum_pb.solution(), weighted_sum_pb.objective_values()
+                    weighted_sum_pb.solution(),
+                    weighted_sum_pb.objective_values(),
+                    weights,
+                    weighted_sum_pb.dual_constraint_values(),
                 )
                 continue
 

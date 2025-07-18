@@ -76,12 +76,29 @@ class OneObjectiveSubproblem(Subproblem):
         # There is no dual values in this case
         return np.array([])
 
+    def dual_constraint_values(self) -> Optional[np.ndarray]:
+        """Returns the dual values associated to the constraints of the subproblem.
+
+        Warning! It is the responsability of the user to call the solve() method
+        before calling this method and to check the resolution has worked. Otherwise,
+        the values are likely to be wrong.
+        """
+        dual_constraint_values = []
+        if not self._constraints:
+            return None
+        for constraint in self._constraints:
+            if isinstance(constraint.dual_value, float):
+                dual_constraint_values += [constraint.dual_value]
+            else:
+                dual_constraint_values += constraint.dual_value.tolist()
+        return np.asarray(dual_constraint_values)
+
 
 def solve_one_objective_subproblem(
     obj: int,
     objectives: List[Union[cp.Minimize, cp.Maximize]],
     constraints: Optional[List[cp.Constraint]] = None,
-) -> Tuple[str, np.ndarray, np.ndarray]:
+) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """Solve the one objective subproblem.
 
     Solve min sum fi(x)
@@ -102,8 +119,9 @@ def solve_one_objective_subproblem(
 
     Returns
     -------
-    Tuple[str, np.ndarray, np.ndarray]
-       The status of the optimization, the optimal solution values and the optimal objective values.
+    Tuple[str, np.ndarray, np.ndarray, np.ndarray, optional[np.ndarray]]
+        The status of the optimization, the optimal solution values, the optimal objective values,
+        the dual objective values, and the dual constraint values (if they exist).
     """
     single_obj_pb = OneObjectiveSubproblem(objectives, constraints)
     single_obj_pb.parameters = obj
@@ -113,6 +131,8 @@ def solve_one_objective_subproblem(
             single_obj_status,
             single_obj_pb.solution(),
             single_obj_pb.objective_values(),
+            np.array([1.0 if i == obj else 0.0 for i in range(len(objectives))]),
+            single_obj_pb.dual_constraint_values(),
         )
     else:
-        return single_obj_status, np.ndarray([]), np.ndarray([])
+        return single_obj_status, np.ndarray([]), np.ndarray([]), np.ndarray([]), None

@@ -26,7 +26,7 @@ if __name__ == "__main__":
         cp.Minimize(cp.sum_squares(x - a[1])),
         cp.Minimize(cp.sum_squares(x - a[2])),
     ]
-    constraints = [x >= 0, x <= [10, 4], x[0] + 2 * x[1] <= 10]
+    constraints = [x[0] >= 1, x[1] >= 0, x <= [10, 4], x[0] + 2 * x[1] <= 10]
 
     client = Client()
     solver = mocp.MONMOParSolver(client, objectives, constraints)

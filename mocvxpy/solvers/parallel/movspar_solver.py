@@ -246,7 +246,13 @@ class MOVSParSolver:
                 nb_subproblems_solved_per_iter += 1
 
                 # Update solution
-                sol.insert_solution(optimization_logs[1], optimization_logs[2])
+                w_opt = optimization_logs[3]
+                sol.insert_solution(
+                    optimization_logs[1],
+                    optimization_logs[2],
+                    w_opt if Z is None else Z.T @ w_opt,
+                    optimization_logs[5],
+                )
                 current_inner_vertex_indexes.append(len(sol.objective_values) - 1)
 
                 outer_v = sp_pair[:nobj]
@@ -254,7 +260,6 @@ class MOVSParSolver:
 
                 # Update outer approximation
                 z_opt = optimization_logs[4]
-                w_opt = optimization_logs[3]
                 if Z is None:
                     outer_approximation.insert_halfspace(
                         np.asarray([-z_opt - np.dot(outer_v, w_opt)] + w_opt.tolist())
@@ -344,7 +349,12 @@ class MOVSParSolver:
             single_obj_status = optimization_logs[0]
 
             if single_obj_status == "solved":
-                sol.insert_solution(optimization_logs[1], optimization_logs[2])
+                sol.insert_solution(
+                    optimization_logs[1],
+                    optimization_logs[2],
+                    optimization_logs[3],
+                    optimization_logs[4],
+                )
                 continue
 
             if single_obj_status == "infeasible":
