@@ -289,7 +289,12 @@ class MONMOSolver:
                     f"{elapsed_subproblems_per_iter:19e} {elapsed_total_subproblems / total_nm_pbs_solved:19e}",
                 )
 
-            if nb_subproblems_failed_per_iter == len(unknown_outer_vertices):
+            # NB: when there does not exist outer vertices (i.e., unknown_outer_vertices = []) to explore during this
+            # iteration, the algorithm can still try to improve the outer approximation by adding new hyperplanes for
+            # vertices already explored during some previous iterations.
+            if unknown_outer_vertices and nb_subproblems_failed_per_iter == len(
+                unknown_outer_vertices
+            ):
                 status = "norm_min_subproblem_failure"
                 break
 
