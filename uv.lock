@@ -125,7 +125,7 @@ wheels = [
 
 [[package]]
 name = "cvxpy"
-version = "1.7.0"
+version = "1.7.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "clarabel" },
@@ -134,13 +134,13 @@ dependencies = [
     { name = "scipy" },
     { name = "scs" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ce/0e/a9f896fc234680601806790eca098a6f887b6b844a30d0fcbceec3e10bed/cvxpy-1.7.0.tar.gz", hash = "sha256:8376513bfffcca8804dcd95fee1633ff90b441440f9c3c8f133f1ce933d297c3", size = 1630448, upload-time = "2025-07-14T21:01:38.485Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8f/0a/e8bedfbb60f21e571e7a6a5e287dec746666ea8ae21829b46f451e264fe9/cvxpy-1.7.1.tar.gz", hash = "sha256:6fbc13a0bccc076b6f53ed79aaa9ec1f9a892116e13b35f27b237b5244f0f269", size = 1633642, upload-time = "2025-07-18T21:55:46.457Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/a3/c378a157020a100ab0bb78bab973cf7d067cacad7cc3667fb4fae5d2d897/cvxpy-1.7.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:756e65e05473f2881ecbb83be9a9d2053870d06ed26681d30e457a07f0a7a683", size = 1538350, upload-time = "2025-07-14T21:05:29.553Z" },
-    { url = "https://files.pythonhosted.org/packages/af/99/2dd0feeb03400d2abbe803f80eed2d7cb22d7d0bb1ab748ff9f04b5aa31a/cvxpy-1.7.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:5dcba1270795879c788796dd529a4d71d60b8921ab641606d53b253d1ef7f644", size = 1192047, upload-time = "2025-07-14T21:05:30.752Z" },
-    { url = "https://files.pythonhosted.org/packages/42/08/2ca04b9fbaeea88817dafa35b8a405dd0569505ca4b0ad070fa13546e4bc/cvxpy-1.7.0-cp313-cp313-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:a9349a473bcd863bf145846e51304cd82c7b3cbb97ccc5ef0eb0acc0f4131aea", size = 1194367, upload-time = "2025-07-14T21:01:29.734Z" },
-    { url = "https://files.pythonhosted.org/packages/d3/e6/4551ea9cf5ae1b2a0789940a95d79d84cf13a82c7c2eed2ad32cac0a599e/cvxpy-1.7.0-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:785e8dac99ca69cc80fa792e607ccb608476e773a9930d310c24fd37c6d177d0", size = 1224098, upload-time = "2025-07-14T21:01:30.999Z" },
-    { url = "https://files.pythonhosted.org/packages/bf/78/ca370bec7d23ff46c9d757287c9dfa3b6a311e9e82ef6cf3ebc539468ff5/cvxpy-1.7.0-cp313-cp313-win_amd64.whl", hash = "sha256:770ece1d72b901a3baa1d7711148a0af55d999a36feaaa5665945aa7f9a26edb", size = 1122999, upload-time = "2025-07-14T20:50:37.446Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/a0/8f14c6501f57b435c577aab7ff4076404142cb6e42f536d9b01067f85908/cvxpy-1.7.1-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:64da382697f45eff9448578ffb19d7521d92c241c4a6cac6cba556d9c8e67bb3", size = 1542505, upload-time = "2025-07-18T21:56:10.737Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/b5/77f688c190c2b7801f062a18376716113c3e8a23c8d61593ff97d0f7e5d9/cvxpy-1.7.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:3fc3c163c9eb15234f0a20185ad87bf0e7a75d819580e576235740308dc1bc40", size = 1196198, upload-time = "2025-07-18T21:56:12.275Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/02/190bc5adfdc2a6765cb10d4b71afd9b2b1a9f6146d29a961103a22c4fce0/cvxpy-1.7.1-cp313-cp313-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:31bdd77b3684052c331aeffcd1cb303dfe4a92e80669dd9de30e57e9dafedecd", size = 1198523, upload-time = "2025-07-18T21:55:34.085Z" },
+    { url = "https://files.pythonhosted.org/packages/89/d4/51501a05698793ae526fee58a785ff93d5003dcd202c0989987666bf7be4/cvxpy-1.7.1-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4f9e25e3a649eaf251b7638e9b54389c3a4fe511ec6807a06eabfd9cbf0e546f", size = 1228252, upload-time = "2025-07-18T21:55:35.395Z" },
+    { url = "https://files.pythonhosted.org/packages/20/06/50843aa5157a7d7db693f47b34ac3eadf47802300e893aa3446e06c358c3/cvxpy-1.7.1-cp313-cp313-win_amd64.whl", hash = "sha256:10c4757b858a9e903007bcd29f22cd1f9d6c1259a882f254235d15c867b63a37", size = 1127182, upload-time = "2025-07-18T21:44:49.189Z" },
 ]
 
 [[package]]
