@@ -2,7 +2,7 @@ import abc
 import cvxpy as cp
 import numpy as np
 
-from copy import copy, deepcopy
+from copy import copy
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import (
     extract_variables_from_problem,
