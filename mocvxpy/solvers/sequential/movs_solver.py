@@ -369,6 +369,9 @@ class MOVSSolver:
             the outer vertex and the last nobj columns the coordinates of
             the corresponding inner vertex.
 
+        current_inner_vertex_ind: int (out)
+            The index of the previously selected outer vertex.
+
         Returns
         -------
         np.ndarray:
