@@ -4,6 +4,12 @@ import time
 
 from mocvxpy.problems.utilities import number_of_variables
 from mocvxpy.solvers.common import compute_extreme_objective_vectors
+from mocvxpy.constants import (
+    ADENA_BOX_EXTENSION_TOL,
+    ADENA_MAX_ITER,
+    ADENA_MAX_PB_SOLVED,
+    ADENA_MIN_STOPPING_TOL,
+)
 from mocvxpy.solvers.solution import (
     Solution,
     update_local_lower_bounds,
@@ -11,22 +17,6 @@ from mocvxpy.solvers.solution import (
 )
 from mocvxpy.subproblems.pascoletti_serafini import PascolettiSerafiniSubproblem
 from typing import Dict, List, Optional, Tuple, Union
-
-# The threshold used to compute the initial box for ADENA. The lower bound
-# is the ideal objective vector of the problem and the upper bound an
-# approximation of the nadir objective vector that is computed by taking
-# the maximum along all coordinates of the nobj extreme points.
-# The box is given by: [lb - ADENA_BOX_EXTENSION_TOL, ub + ADENA_BOX_EXTENSION_TOL]
-ADENA_BOX_EXTENSION_TOL = 1e-4
-
-# The minimum stopping tolerance allowed for ADENA
-ADENA_MIN_STOPPING_TOL = 1e-4
-
-# The maximum number of iterations allowed for ADENA
-ADENA_MAX_ITER = 1000
-
-# The maximum number of subproblems to solved allowed for ADENA
-ADENA_MAX_PB_SOLVED = 10000
 
 
 class ADENASolver:

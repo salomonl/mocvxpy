@@ -2,7 +2,12 @@ import cvxpy as cp
 import numpy as np
 import time
 
-from mocvxpy.constants import MIN_DIST_OBJ_VECS
+from mocvxpy.constants import (
+    MIN_DIST_OBJ_VECS,
+    MONMO_MAX_ITER,
+    MONMO_MAX_PB_SOLVED,
+    MONMO_MIN_STOPPING_TOL,
+)
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import number_of_variables
 from mocvxpy.solvers.common import (
@@ -13,15 +18,6 @@ from mocvxpy.solvers.solution import OuterApproximation, Solution
 from mocvxpy.subproblems.norm_min import NormMinSubproblem
 from mocvxpy.subproblems.weighted_sum import WeightedSumSubproblem
 from typing import Dict, List, Optional, Tuple, Union
-
-# The minimum stopping tolerance allowed for MONMO
-MONMO_MIN_STOPPING_TOL = 1e-6
-
-# The maximum number of iterations allowed for MONMO
-MONMO_MAX_ITER = 10000
-
-# The maximum number of subproblems to solved allowed for MONMO
-MONMO_MAX_PB_SOLVED = 20000
 
 
 class MONMOSolver:

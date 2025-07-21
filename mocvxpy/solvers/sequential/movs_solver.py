@@ -2,7 +2,7 @@ import cvxpy as cp
 import numpy as np
 import time
 
-from mocvxpy.constants import MIN_DIST_OBJ_VECS
+from mocvxpy.constants import MIN_DIST_OBJ_VECS, MOVS_MAX_ITER, MOVS_MIN_STOPPING_TOL
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import number_of_variables
 from mocvxpy.solvers.common import (
@@ -13,12 +13,6 @@ from mocvxpy.solvers.solution import OuterApproximation, Solution
 from mocvxpy.subproblems.pascoletti_serafini import PascolettiSerafiniSubproblem
 from mocvxpy.subproblems.weighted_sum import WeightedSumSubproblem
 from typing import Dict, List, Optional, Tuple, Union
-
-# The minimum stopping tolerance allowed for MOVS
-MOVS_MIN_STOPPING_TOL = 1e-6
-
-# The maximum number of iterations allowed for MOVS
-MOVS_MAX_ITER = 10000
 
 
 class MOVSSolver:
