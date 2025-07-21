@@ -314,6 +314,13 @@ class Problem:
             The solver to use. For example, "ADENA", "MONMO" or "MOVS". Use MOVS by default.
         verbose: bool, optional.
             If True, displays information on the progression of the algorithm.
+        stopping_tol: float
+            The stopping tolerance of the solver. Takes into account the scales of the objectives.
+        max_pb_solved: int
+            The maximum number of problems to be solved allowed. Do not account for the initial
+           problems.
+        **kwargs
+            Additional keywords arguments to specify solver specific options.
         """
         solver_name = kwargs.get("solver", None)
         if solver_name is None:
@@ -336,7 +343,9 @@ class Problem:
                 self._objectives, self._constraints, self._order_cone
             )
 
-        self._status, sol = solver.solve()
+        # Pass corresponding solver keywords
+        solver_kwargs = {key: item for key, item in kwargs.items() if key not in ['solver']}
+        self._status, sol = solver.solve(**solver_kwargs)
 
         # Populate optimal decision variables
         nsolutions = sol.xvalues.shape[0]

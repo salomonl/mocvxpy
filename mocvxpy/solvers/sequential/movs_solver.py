@@ -12,7 +12,13 @@ from mocvxpy.solvers.common import (
 from mocvxpy.solvers.solution import OuterApproximation, Solution
 from mocvxpy.subproblems.pascoletti_serafini import PascolettiSerafiniSubproblem
 from mocvxpy.subproblems.weighted_sum import WeightedSumSubproblem
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
+
+# The minimum stopping tolerance allowed for MOVS
+MOVS_MIN_STOPPING_TOL = 1e-6
+
+# The maximum number of iterations allowed for MOVS
+MOVS_MAX_ITER = 10000
 
 
 class MOVSSolver:
@@ -53,9 +59,38 @@ class MOVSSolver:
         self._order_cone = order_cone
 
     def solve(
-        self, stopping_tol: float = 5 * 1e-4, maxiter: int = 100, verbose: bool = True
+        self,
+        verbose: bool = True,
+        stopping_tol: float = 5 * 1e-4,
+        max_iter: int = 100,
+        scalarization_solver_options: Optional[Dict] = None,
+        vertex_selection_solver_options: Optional[Dict] = None,
     ) -> Tuple[str, Solution]:
         """Solve the problem.
+
+        Arguments
+        ---------
+        verbose: bool
+           Display the output of the algorithm.
+
+        stopping_tol: float
+           The stopping tolerance. When the haussdorf distance between the outer
+           approximation and the inner approximation is below stopping_tol * scale_factor,
+           the algorithm stops. Is always above or equal to MONMO_MIN_STOPPING_TOL = 1e-6.
+
+        max_iter: int
+           The maximum number of iterations allowed.
+
+        scalarization_solver_options: optional[dict]
+           The options of the solver used to solve the scalarization subproblem.
+           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           the conventional way of giving options to a solver in cvxpy.
+
+        vertex_selection_solver_options: optional[dict]
+           The options of the solver used to solve the vertex selection subproblem. Must be able
+           to solve a quadratic problem.
+           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           the conventional way of giving options to a solver in cvxpy.
 
         Returns
         -------
@@ -80,7 +115,7 @@ class MOVSSolver:
                 ),
             )
 
-        initial_step_status, sol = self._initial_step(sol)
+        initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
             if verbose:
                 print(
@@ -124,7 +159,9 @@ class MOVSSolver:
         ideal_to_extreme_pts_hyp_dist = np.absolute(
             np.dot(extreme_pts_hyp_params, sol.ideal_objective_vector()) - 1.0
         ) / np.linalg.norm(extreme_pts_hyp_params)
-        scaled_stopping_tol = stopping_tol * max(1.0, ideal_to_extreme_pts_hyp_dist)
+        scaled_stopping_tol = max(stopping_tol, MOVS_MIN_STOPPING_TOL) * max(
+            1.0, ideal_to_extreme_pts_hyp_dist
+        )
 
         if verbose:
             print(f"Stopping tolerance: {scaled_stopping_tol:.5E}")
@@ -150,13 +187,16 @@ class MOVSSolver:
             self._objectives, self._constraints, self._order_cone
         )
 
+        # Set options
+        max_iter = min(max_iter, MOVS_MAX_ITER)
+
         status = "maxiter_reached"
         vertex_selection_solutions = np.array([]).reshape((0, 2 * nobj))
         visited_outer_vertices = np.array([]).reshape((0, nobj))
         current_inner_vertex_ind = -1
         elapsed_ps_pb = 0.0
         start_optimization = time.perf_counter()
-        for iter in range(maxiter):
+        for iter in range(max_iter):
             start_vertex_selection_pb = time.perf_counter()
             vertex_selection_solutions, opt_pair_ind, nb_qp_solved = (
                 self._solve_vertex_selection_pb(
@@ -164,6 +204,7 @@ class MOVSSolver:
                     sol.objective_values,
                     vertex_selection_solutions,
                     current_inner_vertex_ind,
+                    vertex_selection_solver_options,
                 )
             )
             end_vertex_selection_pb = time.perf_counter()
@@ -223,7 +264,10 @@ class MOVSSolver:
             ps_pb.parameters = np.concatenate((v, c))
 
             start_ps_pb = time.perf_counter()
-            status_ps = ps_pb.solve()
+            if scalarization_solver_options is None:
+                status_ps = ps_pb.solve()
+            else:
+                status_ps = ps_pb.solve(**scalarization_solver_options)
             end_ps_pb = time.perf_counter()
             elapsed_ps_pb = end_ps_pb - start_ps_pb
 
@@ -276,7 +320,9 @@ class MOVSSolver:
 
         return status, sol
 
-    def _initial_step(self, sol: Solution) -> Tuple[str, Solution]:
+    def _initial_step(
+        self, sol: Solution, scalarization_solver_options: Optional[Dict]
+    ) -> Tuple[str, Solution]:
         """The initial step.
 
         Compute extreme solutions and their objective values according to the ordering cone.
@@ -285,6 +331,11 @@ class MOVSSolver:
         ---------
         sol: Solution
             The solution (initialized).
+
+        scalarization_solver_options: optional[dict]
+           The options of the solver used to solve the extreme solution subproblems.
+           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           the conventional way of giving options to a solver in cvxpy.
 
         Returns
         -------
@@ -297,7 +348,9 @@ class MOVSSolver:
         # Compute extreme solutions.
         if self._order_cone is None:
             init_phase_result = compute_extreme_objective_vectors(
-                self._objectives, self._constraints
+                self._objectives,
+                self._constraints,
+                solver_options=scalarization_solver_options,
             )
             for ind, opt_values in enumerate(
                 zip(init_phase_result[1], init_phase_result[2], init_phase_result[3])
@@ -318,7 +371,12 @@ class MOVSSolver:
         weighted_sum_pb = WeightedSumSubproblem(self._objectives, self._constraints)
         for weights in self._order_cone.inequalities:
             weighted_sum_pb.parameters = weights
-            weighted_sum_status = weighted_sum_pb.solve()
+            if scalarization_solver_options is None:
+                weighted_sum_status = weighted_sum_pb.solve()
+            else:
+                weighted_sum_status = weighted_sum_pb.solve(
+                    **scalarization_solver_options
+                )
             if weighted_sum_status == "solved":
                 sol.insert_solution(
                     weighted_sum_pb.solution(),
@@ -344,6 +402,7 @@ class MOVSSolver:
         inner_vertices: np.ndarray,
         previous_vertex_selection_solutions: np.ndarray,
         current_inner_vertex_ind: int,
+        solver_options: Optional[Dict],
     ) -> Tuple[np.ndarray, int, int]:
         """Solve the vertex solution problem.
 
@@ -369,8 +428,12 @@ class MOVSSolver:
             the outer vertex and the last nobj columns the coordinates of
             the corresponding inner vertex.
 
-        current_inner_vertex_ind: int (out)
+        current_inner_vertex_ind: int
             The index of the previously selected outer vertex.
+
+        solver_options: optional[dict]
+            The options of the solver used to solve the vertex selection
+            problem.
 
         Returns
         -------
@@ -454,7 +517,10 @@ class MOVSSolver:
             # Otherwise, we need to solve the qp problem for vertex selection
             outer_v.value = outer_vertex
             try:
-                qp_pb.solve(solver=cp.GUROBI)
+                if solver_options is None:
+                    qp_pb.solve()
+                else:
+                    qp_pb.solve(**solver_options)
             except cp.SolverError:
                 continue
 

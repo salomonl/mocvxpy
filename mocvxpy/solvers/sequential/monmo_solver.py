@@ -12,7 +12,16 @@ from mocvxpy.solvers.common import (
 from mocvxpy.solvers.solution import OuterApproximation, Solution
 from mocvxpy.subproblems.norm_min import NormMinSubproblem
 from mocvxpy.subproblems.weighted_sum import WeightedSumSubproblem
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
+
+# The minimum stopping tolerance allowed for MONMO
+MONMO_MIN_STOPPING_TOL = 1e-6
+
+# The maximum number of iterations allowed for MONMO
+MONMO_MAX_ITER = 10000
+
+# The maximum number of subproblems to solved allowed for MONMO
+MONMO_MAX_PB_SOLVED = 20000
 
 
 class MONMOSolver:
@@ -54,12 +63,35 @@ class MONMOSolver:
 
     def solve(
         self,
-        stopping_tol: float = 5 * 1e-4,
-        maxiter: int = 100,
-        max_pb_solved: int = 350,
         verbose: bool = True,
+        stopping_tol: float = 5 * 1e-4,
+        max_iter: int = 100,
+        max_pb_solved: int = 350,
+        scalarization_solver_options: Optional[Dict] = None,
     ) -> Tuple[str, Solution]:
         """Solve the problem.
+
+        Arguments
+        ---------
+        verbose: bool
+           Display the output of the algorithm.
+
+        stopping_tol: float
+           The stopping tolerance. When the haussdorf distance between the outer
+           approximation and the inner approximation is below stopping_tol * scale_factor,
+           the algorithm stops. Is always above or equal to MONMO_MIN_STOPPING_TOL = 1e-6.
+
+        max_iter: int
+           The maximum number of iterations allowed.
+
+        max_pb_solved: int
+           The maximum number of problems to be solved allowed. Do not account for the initial
+           problems.
+
+        scalarization_solver_options: optional[dict]
+           The options of the solver used to solve the scalarization subproblem.
+           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           the conventional way of giving options to a solver in cvxpy.
 
         Returns
         -------
@@ -84,7 +116,7 @@ class MONMOSolver:
                 ),
             )
 
-        initial_step_status, sol = self._initial_step(sol)
+        initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
             if verbose:
                 print(
@@ -128,7 +160,13 @@ class MONMOSolver:
         ideal_to_extreme_pts_hyp_dist = np.absolute(
             np.dot(extreme_pts_hyp_params, sol.ideal_objective_vector()) - 1.0
         ) / np.linalg.norm(extreme_pts_hyp_params)
-        scaled_stopping_tol = stopping_tol * max(1.0, ideal_to_extreme_pts_hyp_dist)
+        scaled_stopping_tol = max(stopping_tol, MONMO_MIN_STOPPING_TOL) * max(
+            1.0, ideal_to_extreme_pts_hyp_dist
+        )
+
+        # Set other stopping criteria
+        max_iter = min(max_iter, MONMO_MAX_ITER)
+        max_pb_solved = min(max_pb_solved, MONMO_MAX_PB_SOLVED)
 
         if verbose:
             print(f"Stopping tolerance: {scaled_stopping_tol:.5E}")
@@ -162,7 +200,7 @@ class MONMOSolver:
         elapsed_total_subproblems = 0.0
         total_nm_pbs_solved = 0
         total_nm_pbs_failed = 0
-        for iter in range(maxiter):
+        for iter in range(max_iter):
             # Remove vertices that do not belong to the set of outer vertices
             for index in reversed(range(len(explored_outer_vertices_information))):
                 remove_vertex = True
@@ -203,7 +241,10 @@ class MONMOSolver:
                 v = np.asarray(vertex)
                 norm_min_pb.parameters = v
                 start_nm_pb_solved = time.perf_counter()
-                status_norm_min = norm_min_pb.solve()
+                if scalarization_solver_options is None:
+                    status_norm_min = norm_min_pb.solve()
+                else:
+                    status_norm_min = norm_min_pb.solve(**scalarization_solver_options)
                 end_nm_pb_solved = time.perf_counter()
 
                 # If there is a failure, we ignore it and try to compute
@@ -328,7 +369,9 @@ class MONMOSolver:
 
         return status, sol
 
-    def _initial_step(self, sol: Solution) -> Tuple[str, Solution]:
+    def _initial_step(
+        self, sol: Solution, scalarization_solver_options: Optional[Dict]
+    ) -> Tuple[str, Solution]:
         """The initial step.
 
         Compute extreme solutions and their objective values according to the ordering cone.
@@ -337,6 +380,11 @@ class MONMOSolver:
         ---------
         sol: Solution
             The solution (initialized).
+
+        scalarization_solver_options: optional[dict]
+           The options of the solver used to solve the extreme solution subproblems.
+           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           the conventional way of giving options to a solver in cvxpy.
 
         Returns
         -------
@@ -349,7 +397,9 @@ class MONMOSolver:
         # Compute extreme solutions.
         if self._order_cone is None:
             init_phase_result = compute_extreme_objective_vectors(
-                self._objectives, self._constraints
+                self._objectives,
+                self._constraints,
+                solver_options=scalarization_solver_options,
             )
             for ind, opt_values in enumerate(
                 zip(init_phase_result[1], init_phase_result[2], init_phase_result[3])
@@ -370,7 +420,12 @@ class MONMOSolver:
         weighted_sum_pb = WeightedSumSubproblem(self._objectives, self._constraints)
         for weights in self._order_cone.inequalities:
             weighted_sum_pb.parameters = weights
-            weighted_sum_status = weighted_sum_pb.solve()
+            if scalarization_solver_options is None:
+                weighted_sum_status = weighted_sum_pb.solve()
+            else:
+                weighted_sum_status = weighted_sum_pb.solve(
+                    **scalarization_solver_options
+                )
             if weighted_sum_status == "solved":
                 sol.insert_solution(
                     weighted_sum_pb.solution(),

@@ -16,13 +16,21 @@ constraints = [x >= 0, cp.sum_squares(x - 1) <= 1]
 
 pb = mocp.Problem(objectives, constraints)
 
-objective_values = pb.solve(solver="MONMO")
+objective_values = pb.solve(
+    solver="MONMO", scalarization_solver_options={"solver": cp.MOSEK}
+)
 print("status: ", pb.status)
 
-objective_values = pb.solve(solver="MOVS")
+objective_values = pb.solve(
+    solver="MOVS",
+    scalarization_solver_options={"solver": cp.MOSEK},
+    vertex_selection_solver_options={"solver": cp.GUROBI},
+)
 print("status: ", pb.status)
 
-objective_values = pb.solve(solver="ADENA")
+objective_values = pb.solve(
+    solver="ADENA", scalarization_solver_options={"solver": cp.MOSEK}
+)
 print("status: ", pb.status)
 
 ax = plt.figure().add_subplot()

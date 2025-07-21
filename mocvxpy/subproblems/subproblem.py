@@ -135,8 +135,22 @@ class Subproblem(metaclass=abc.ABCMeta):
         """
         return self._pb.value
 
-    def solve(self) -> str:
+    def solve(
+        self, solver: Optional[str] = None, verbose: bool = False, **kwargs
+    ) -> str:
         """Solve the problem.
+
+        Arguments
+        ---------
+        solver: optional[str]
+           The solver to use.
+        solver_path: list of (str, dict) tuples or strings, optional
+           The solvers to use with optional arguments. The method tries the solvers
+           in the given order and returns the first solver's solution that succeeds.
+        verbose: optional[bool]
+           If True, displays the outputs of the solver.
+        **kwargs
+           Additional keyword arguments specifying solver specific options.
 
         Returns
         -------
@@ -144,7 +158,7 @@ class Subproblem(metaclass=abc.ABCMeta):
            The status of the resolution
         """
         try:
-            self._pb.solve(solver=cp.MOSEK)
+            self._pb.solve(solver=solver, verbose=verbose, **kwargs)
         except:
             return "unsolved"
 

@@ -34,10 +34,16 @@ C = mocp.compute_order_cone_from_its_rays(
 
 pb = mocp.Problem(objectives, constraints, C)
 
-objective_values = pb.solve(solver="MOVS")
+objective_values = pb.solve(
+    solver="MOVS",
+    scalarization_solver_options={"solver": cp.MOSEK},
+    vertex_selection_solver_options={"solver": cp.GUROBI},
+)
 print("status: ", pb.status)
 
-objective_values = pb.solve(solver="MONMO")
+objective_values = pb.solve(
+    solver="MONMO", scalarization_solver_options={"solver": cp.MOSEK}
+)
 print("status: ", pb.status)
 
 # ax = plt.figure().add_subplot()

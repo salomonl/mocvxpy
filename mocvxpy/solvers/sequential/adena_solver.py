@@ -10,7 +10,23 @@ from mocvxpy.solvers.solution import (
     update_local_upper_bounds,
 )
 from mocvxpy.subproblems.pascoletti_serafini import PascolettiSerafiniSubproblem
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
+
+# The threshold used to compute the initial box for ADENA. The lower bound
+# is the ideal objective vector of the problem and the upper bound an
+# approximation of the nadir objective vector that is computed by taking
+# the maximum along all coordinates of the nobj extreme points.
+# The box is given by: [lb - ADENA_BOX_EXTENSION_TOL, ub + ADENA_BOX_EXTENSION_TOL]
+ADENA_BOX_EXTENSION_TOL = 1e-4
+
+# The minimum stopping tolerance allowed for ADENA
+ADENA_MIN_STOPPING_TOL = 1e-4
+
+# The maximum number of iterations allowed for ADENA
+ADENA_MAX_ITER = 1000
+
+# The maximum number of subproblems to solved allowed for ADENA
+ADENA_MAX_PB_SOLVED = 10000
 
 
 class ADENASolver:
@@ -47,12 +63,35 @@ class ADENASolver:
 
     def solve(
         self,
-        stopping_tol: float = 0.005,
-        maxiter: int = 50,
-        max_pb_solved: int = 350,
         verbose: bool = True,
+        stopping_tol: float = 0.005,
+        max_iter: int = 50,
+        max_pb_solved: int = 350,
+        scalarization_solver_options: Optional[Dict] = None,
     ) -> Tuple[str, Solution]:
         """Solve the problem.
+
+        Arguments
+        ---------
+        verbose: bool
+           Display the output of the algorithm.
+
+        stopping_tol: float
+           The stopping tolerance. When the haussdorf distance between the outer
+           approximation and the inner approximation is below stopping_tol * scale_factor,
+           the algorithm stops. Is always above or equal to MONMO_MIN_STOPPING_TOL = 1e-6.
+
+        max_iter: int
+           The maximum number of iterations allowed.
+
+        max_pb_solved: int
+           The maximum number of problems to be solved allowed. Do not account for the initial
+           problems.
+
+        scalarization_solver_options: optional[dict]
+           The options of the solver used to solve the scalarization subproblem.
+           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           the conventional way of giving options to a solver in cvxpy.
 
         Returns
         -------
@@ -68,7 +107,7 @@ class ADENASolver:
             print("Number of objectives: ", nobj)
             print("Number of variables: ", nvars)
 
-        initial_step_status, sol = self._initial_step(sol)
+        initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
             if verbose:
                 print(
@@ -81,19 +120,16 @@ class ADENASolver:
         # Initialize initial lower and upper bound sets
         # TODO: nothing could prevent some solutions from being inside the enclosure
         # (from above: what to do in this case ?)
-        lower_bounds = np.min(sol.objective_values, axis=0) - 1e-4
+        lower_bounds = np.min(sol.objective_values, axis=0) - ADENA_BOX_EXTENSION_TOL
         lower_bounds = np.reshape(lower_bounds, (1, nobj))
-        upper_bounds = np.max(sol.objective_values, axis=0) + 1e-4
+        upper_bounds = np.max(sol.objective_values, axis=0) + ADENA_BOX_EXTENSION_TOL
         upper_bounds = np.reshape(upper_bounds, (1, nobj))
 
         # Compute scaled stopping tolerance
-        min_enclosure_width = (
-            max(
-                1,
-                min(upper_bounds[0][obj] - lower_bounds[0][obj] for obj in range(nobj)),
-            )
-            * stopping_tol
-        )
+        min_enclosure_width = max(
+            1,
+            min(upper_bounds[0][obj] - lower_bounds[0][obj] for obj in range(nobj)),
+        ) * max(stopping_tol, ADENA_MIN_STOPPING_TOL)
         if verbose:
             print(f"Stopping tolerance: {min_enclosure_width:.5E}")
             print()
@@ -108,13 +144,17 @@ class ADENASolver:
         # Initialize subproblem
         sup_pb = PascolettiSerafiniSubproblem(self._objectives, self._constraints, None)
 
+        # Set options
+        max_iter = min(max_iter, ADENA_MAX_ITER)
+        max_pb_solved = min(max_pb_solved, ADENA_MAX_PB_SOLVED)
+
         nb_subproblems_solved_per_iter = 0
         total_pb_solved = 0
         elapsed_subproblems_per_iter = 0.0
         elapsed_update_bounds = 0.0
         status = "max_iter_reached"
         start_optimization = time.perf_counter()
-        for iter in range(maxiter):
+        for iter in range(max_iter):
             # Compute enclosure width
             enclosure_width = -np.inf
             for lb in lower_bounds:
@@ -176,7 +216,10 @@ class ADENASolver:
                 # with vref = lb and direction = ub - lb
                 sup_pb.parameters = np.concatenate((lb, ub - lb))
                 start_sup_pb_solved = time.perf_counter()
-                status_sup_pb = sup_pb.solve()
+                if scalarization_solver_options is None:
+                    status_sup_pb = sup_pb.solve()
+                else:
+                    status_sup_pb = sup_pb.solve(**scalarization_solver_options)
                 end_sup_pb_solved = time.perf_counter()
 
                 if status_sup_pb != "solved":
@@ -227,7 +270,9 @@ class ADENASolver:
 
         return status, sol
 
-    def _initial_step(self, sol: Solution) -> Tuple[str, Solution]:
+    def _initial_step(
+        self, sol: Solution, scalarization_solver_options: Optional[Dict]
+    ) -> Tuple[str, Solution]:
         """The initial step.
 
         Compute extreme solutions and their objective values.
@@ -236,6 +281,11 @@ class ADENASolver:
         ---------
         sol: Solution
             The solution (initialized).
+
+        scalarization_solver_options: optional[dict]
+           The options of the solver used to solve the extreme solution subproblems.
+           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           the conventional way of giving options to a solver in cvxpy.
 
         Returns
         -------
@@ -246,7 +296,9 @@ class ADENASolver:
             The set of all solutions found during the initial step.
         """
         init_phase_result = compute_extreme_objective_vectors(
-            self._objectives, self._constraints
+            self._objectives,
+            self._constraints,
+            solver_options=scalarization_solver_options,
         )
         for ind, opt_values in enumerate(
             zip(init_phase_result[1], init_phase_result[2], init_phase_result[3])

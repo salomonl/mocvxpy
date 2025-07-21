@@ -2,12 +2,13 @@ import cvxpy as cp
 import numpy as np
 
 from mocvxpy.subproblems.one_objective import OneObjectiveSubproblem
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 
 def compute_extreme_objective_vectors(
     objectives: List[Union[cp.Minimize, cp.Maximize]],
     constraints: Optional[List[cp.Constraint]],
+    solver_options: Optional[Dict],
 ) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """Compute extreme solutions of a multiobjective problem.
 
@@ -24,6 +25,9 @@ def compute_extreme_objective_vectors(
 
     constraints : list
         The constraints on the problem variables.
+
+    solver_options: optional, dict
+        The options to pass to the solver computing the extreme points.
 
     Returns
     -------
@@ -46,7 +50,10 @@ def compute_extreme_objective_vectors(
     # TODO: filter solutions in case
     for obj in range(nobj):
         single_obj_pb.parameters = obj
-        single_obj_status = single_obj_pb.solve()
+        if solver_options is None:
+            single_obj_status = single_obj_pb.solve()
+        else:
+            single_obj_status = single_obj_pb.solve(**solver_options)
 
         # Collect solution
         if single_obj_status not in ["infeasible", "unbounded"]:
