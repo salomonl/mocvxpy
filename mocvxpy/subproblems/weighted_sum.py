@@ -107,7 +107,12 @@ class WeightedSumSubproblem(Subproblem):
             if isinstance(constraint.dual_value, float):
                 dual_constraint_values += [constraint.dual_value]
             else:
-                dual_constraint_values += constraint.dual_value.tolist()
+                if constraint.dual_value.ndim == 0:
+                    # In some circumstances, the dual_value method can return
+                    # a 0-dimensional array. We need to deal with this case
+                    dual_constraint_values += [constraint.dual_value.tolist()]
+                else:
+                    dual_constraint_values += constraint.dual_value.tolist()
         return np.asarray(dual_constraint_values)
 
 
