@@ -69,7 +69,7 @@ class ADENASolver:
         stopping_tol: float
            The stopping tolerance. When the haussdorf distance between the outer
            approximation and the inner approximation is below stopping_tol * scale_factor,
-           the algorithm stops. Is always above or equal to MONMO_MIN_STOPPING_TOL = 1e-6.
+           the algorithm stops. Is always above or equal to ADENA_MIN_STOPPING_TOL = 1e-6.
 
         max_iter: int
            The maximum number of iterations allowed.
