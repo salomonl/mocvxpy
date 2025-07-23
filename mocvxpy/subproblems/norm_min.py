@@ -148,6 +148,9 @@ def solve_norm_min_subproblem(
     objectives: List[Union[cp.Minimize, cp.Maximize]],
     constraints: Optional[List[cp.Constraint]] = None,
     order_cone: Optional[OrderCone] = None,
+    solver: Optional[str] = None,
+    verbose: bool = False,
+    **kwargs,
 ) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, float, Optional[np.ndarray]]:
     """Solve the norm minimization subproblem.
 
@@ -174,6 +177,15 @@ def solve_norm_min_subproblem(
         The constraints on the problem variables.
     order_cone: Optional[OrderCone]
         The order cone of the problem.
+    solver: optional[str]
+        The solver to use.
+    solver_path: list of (str, dict) tuples or strings, optional
+        The solvers to use with optional arguments. The method tries the solvers
+        in the given order and returns the first solver's solution that succeeds.
+    verbose: optional[bool]
+        If True, displays the outputs of the solver.
+    **kwargs
+        Additional keyword arguments specifying solver specific options.
 
     Returns
     -------
@@ -184,7 +196,7 @@ def solve_norm_min_subproblem(
     """
     norm_min_pb = NormMinSubproblem(objectives, constraints, order_cone)
     norm_min_pb.parameters = outer_vertex
-    norm_min_status = norm_min_pb.solve()
+    norm_min_status = norm_min_pb.solve(solver=solver, verbose=verbose, **kwargs)
     if norm_min_status not in ["infeasible", "unbounded", "unsolved"]:
         return (
             norm_min_status,

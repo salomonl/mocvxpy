@@ -159,6 +159,9 @@ def solve_pascoletti_serafini_subproblem(
     objectives: List[Union[cp.Minimize, cp.Maximize]],
     constraints: Optional[List[cp.Constraint]] = None,
     order_cone: Optional[OrderCone] = None,
+    solver: Optional[str] = None,
+    verbose: bool = False,
+    **kwargs,
 ) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, float, Optional[np.ndarray]]:
     """Solve the Pascoletti-Serafini subproblem.
 
@@ -187,6 +190,15 @@ def solve_pascoletti_serafini_subproblem(
         The constraints on the problem variables.
     order_cone: Optional[OrderCone]
         The order cone of the problem.
+    solver: optional[str]
+        The solver to use.
+    solver_path: list of (str, dict) tuples or strings, optional
+        The solvers to use with optional arguments. The method tries the solvers
+        in the given order and returns the first solver's solution that succeeds.
+    verbose: optional[bool]
+        If True, displays the outputs of the solver.
+    **kwargs
+        Additional keyword arguments specifying solver specific options.
 
     Returns
     -------
@@ -196,7 +208,7 @@ def solve_pascoletti_serafini_subproblem(
     """
     ps_pb = PascolettiSerafiniSubproblem(objectives, constraints, order_cone)
     ps_pb.parameters = np.concatenate((outer_vertex, direction))
-    ps_pb_status = ps_pb.solve()
+    ps_pb_status = ps_pb.solve(solver=solver, verbose=verbose, **kwargs)
     if ps_pb_status not in ["infeasible", "unbounded", "unsolved"]:
         return (
             ps_pb_status,

@@ -4,7 +4,7 @@ import numpy as np
 import time
 
 from dask.distributed import Client
-from mocvxpy.constants import MIN_DIST_OBJ_VECS
+from mocvxpy.constants import MIN_DIST_OBJ_VECS, MOVS_MAX_ITER, MOVS_MIN_STOPPING_TOL
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import number_of_variables
 from mocvxpy.solvers.common import compute_extreme_points_hyperplane
@@ -12,7 +12,7 @@ from mocvxpy.solvers.solution import OuterApproximation, Solution
 from mocvxpy.subproblems.one_objective import solve_one_objective_subproblem
 from mocvxpy.subproblems.pascoletti_serafini import solve_pascoletti_serafini_subproblem
 from mocvxpy.subproblems.weighted_sum import solve_weighted_sum_subproblem
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 
 class MOVSParSolver:
@@ -57,9 +57,38 @@ class MOVSParSolver:
         self._client = client
 
     def solve(
-        self, stopping_tol: float = 5 * 1e-4, maxiter: int = 7, verbose: bool = True
+        self,
+        verbose: bool = True,
+        stopping_tol: float = 5 * 1e-4,
+        max_iter: int = 7,
+        scalarization_solver_options: Optional[Dict] = None,
+        vertex_selection_solver_options: Optional[Dict] = None,
     ) -> Tuple[str, Solution]:
         """Solve the problem.
+
+        Arguments
+        ---------
+        verbose: bool
+           Display the output of the algorithm.
+
+        stopping_tol: float
+           The stopping tolerance. When the haussdorf distance between the outer
+           approximation and the inner approximation is below stopping_tol * scale_factor,
+           the algorithm stops. Is always above or equal to MOVS_MIN_STOPPING_TOL = 1e-6.
+
+        max_iter: int
+           The maximum number of iterations allowed.
+
+        scalarization_solver_options: optional[dict]
+           The options of the solver used to solve the scalarization subproblem.
+           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           the conventional way of giving options to a solver in cvxpy.
+
+        vertex_selection_solver_options: optional[dict]
+           The options of the solver used to solve the vertex selection subproblem. Must be able
+           to solve a quadratic problem.
+           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           the conventional way of giving options to a solver in cvxpy.
 
         Returns
         -------
@@ -86,7 +115,7 @@ class MOVSParSolver:
             print("Number of processes:", len(self._client.ncores()))
             print("Number of threads", sum(self._client.ncores().values()))
 
-        initial_step_status, sol = self._initial_step(sol)
+        initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
             if verbose:
                 print(
@@ -130,7 +159,9 @@ class MOVSParSolver:
         ideal_to_extreme_pts_hyp_dist = np.absolute(
             np.dot(extreme_pts_hyp_params, sol.ideal_objective_vector()) - 1.0
         ) / np.linalg.norm(extreme_pts_hyp_params)
-        scaled_stopping_tol = stopping_tol * max(1.0, ideal_to_extreme_pts_hyp_dist)
+        scaled_stopping_tol = max(stopping_tol, MOVS_MIN_STOPPING_TOL) * max(
+            1.0, ideal_to_extreme_pts_hyp_dist
+        )
 
         if verbose:
             print(f"Stopping tolerance: {scaled_stopping_tol:.5E}")
@@ -152,6 +183,9 @@ class MOVSParSolver:
                 f"{haussdorf_dist:14e}",
             )
 
+        # Set options
+        max_iter = min(MOVS_MAX_ITER, max_iter)
+
         status = "maxiter_reached"
         vertex_selection_solutions = np.array([]).reshape((0, 2 * nobj))
         visited_outer_vertices = np.array([]).reshape((0, nobj))
@@ -160,13 +194,14 @@ class MOVSParSolver:
         nb_subproblems_solved_per_iter = 0
         elapsed_ps_pb = 0.0
         start_optimization = time.perf_counter()
-        for iter in range(maxiter):
+        for iter in range(max_iter):
             start_vertex_selection_pb = time.perf_counter()
             vertex_selection_solutions, nb_qp_solved = self._solve_vertex_selection_pb(
                 outer_vertices,
                 sol.objective_values,
                 vertex_selection_solutions,
                 current_inner_vertex_indexes,
+                vertex_selection_solver_options,
             )
             end_vertex_selection_pb = time.perf_counter()
             elapsed_vertex_selection_pb = (
@@ -220,6 +255,11 @@ class MOVSParSolver:
                     self._objectives,
                     self._constraints,
                     self._order_cone,
+                    **(
+                        scalarization_solver_options
+                        if scalarization_solver_options is not None
+                        else {}
+                    ),
                 )
                 for sp_pair in vertex_selection_candidates
             ]
@@ -306,7 +346,9 @@ class MOVSParSolver:
 
         return status, sol
 
-    def _initial_step(self, sol: Solution) -> Tuple[str, Solution]:
+    def _initial_step(
+        self, sol: Solution, scalarization_solver_options: Optional[Dict]
+    ) -> Tuple[str, Solution]:
         """The initial step.
 
         Compute in parallel extreme solutions and their objective values according to the ordering cone.
@@ -315,6 +357,11 @@ class MOVSParSolver:
         ---------
         sol: Solution
             The solution (initialized).
+
+        scalarization_solver_options: optional[dict]
+            The options of the solver used to solve the extreme solution subproblems.
+            Must be given under a dict whose keys are pair of (str, any). Each key must follow
+            the conventional way of giving options to a solver in cvxpy.
 
         Returns
         -------
@@ -329,14 +376,28 @@ class MOVSParSolver:
         if self._order_cone is None:
             tasks = [
                 dask.delayed(solve_one_objective_subproblem)(
-                    obj, self._objectives, self._constraints
+                    obj,
+                    self._objectives,
+                    self._constraints,
+                    **(
+                        scalarization_solver_options
+                        if scalarization_solver_options is not None
+                        else {}
+                    ),
                 )
                 for obj in range(nobj)
             ]
         else:
             tasks = [
                 dask.delayed(solve_weighted_sum_subproblem)(
-                    weights, self._objectives, self._constraints
+                    weights,
+                    self._objectives,
+                    self._constraints,
+                    **(
+                        scalarization_solver_options
+                        if scalarization_solver_options is not None
+                        else {}
+                    ),
                 )
                 for weights in self._order_cone.inequalities
             ]
@@ -373,6 +434,7 @@ class MOVSParSolver:
         inner_vertices: np.ndarray,
         previous_vertex_selection_solutions: np.ndarray,
         current_inner_vertex_indexes: List[int],
+        solver_options: Optional[Dict],
     ) -> Tuple[np.ndarray, int]:
         """Solve the vertex solution problem in parallel.
 
@@ -401,6 +463,10 @@ class MOVSParSolver:
         current_inner_vertex_indexes:
             The indexes of the inner vertices found at the previous iteration.
 
+        solver_options: optional[dict]
+            The options of the solver used to solve the vertex selection
+            problem.
+
         Returns
         -------
         np.ndarray:
@@ -419,6 +485,7 @@ class MOVSParSolver:
             outer_vertex: np.ndarray,
             previous_vertex_selection_solutions: np.ndarray,
             current_inner_vertex_indexes: List[int],
+            solver_options: Optional[Dict],
         ):
             # Check if it is an outer vertex from the previous outer approximation.
             previous_inner_vertex = None
@@ -474,7 +541,10 @@ class MOVSParSolver:
 
             # Solve it
             try:
-                qp_pb.solve(solver=cp.GUROBI)
+                if solver_options is None:
+                    qp_pb.solve()
+                else:
+                    qp_pb.solve(**solver_options)
             except cp.SolverError:
                 return np.ndarray([]), False
 
@@ -501,6 +571,7 @@ class MOVSParSolver:
                     outer_vertex,
                     previous_vertex_selection_solutions,
                     current_inner_vertex_indexes,
+                    solver_options,
                 )
             )
             for outer_vertex in outer_vertices

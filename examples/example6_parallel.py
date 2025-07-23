@@ -1,5 +1,6 @@
 import cvxpy as cp
 import matplotlib as mpl
+
 mpl.use("macosx")
 import mocvxpy as mocp
 import numpy as np
@@ -36,9 +37,15 @@ if __name__ == "__main__":
         )
     )
 
+    pb = mocp.Problem(objectives, constraints, C)
+
     client = Client()
-    solver = mocp.MONMOParSolver(client, objectives, constraints, C)
-    status, solution = solver.solve()
+    objective_values = pb.solve(
+        client=client,
+        solver="MONMO",
+        scalarization_solver_options={"solver": cp.MOSEK},
+    )
+    print("status: ", pb.status)
 
     # ax = plt.figure().add_subplot()
     # ax.scatter([vertex[0] for vertex in solution.objective_values],
@@ -47,8 +54,8 @@ if __name__ == "__main__":
 
     ax = plt.figure().add_subplot(projection="3d")
     ax.scatter(
-        [vertex[0] for vertex in solution.objective_values],
-        [vertex[1] for vertex in solution.objective_values],
-        [vertex[2] for vertex in solution.objective_values],
+        [vertex[0] for vertex in objective_values],
+        [vertex[1] for vertex in objective_values],
+        [vertex[2] for vertex in objective_values],
     )
     plt.show()

@@ -4,7 +4,7 @@ import numpy as np
 import time
 
 from dask.distributed import Client
-from mocvxpy.constants import MIN_DIST_OBJ_VECS
+from mocvxpy.constants import MIN_DIST_OBJ_VECS, MONMO_MAX_ITER, MONMO_MIN_STOPPING_TOL
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import number_of_variables
 from mocvxpy.solvers.common import compute_extreme_points_hyperplane
@@ -12,7 +12,7 @@ from mocvxpy.solvers.solution import OuterApproximation, Solution
 from mocvxpy.subproblems.norm_min import solve_norm_min_subproblem
 from mocvxpy.subproblems.one_objective import solve_one_objective_subproblem
 from mocvxpy.subproblems.weighted_sum import solve_weighted_sum_subproblem
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 
 class MONMOParSolver:
@@ -58,12 +58,35 @@ class MONMOParSolver:
 
     def solve(
         self,
-        stopping_tol: float = 5 * 1e-4,
-        maxiter: int = 10,
-        max_pb_solved: int = 350,
         verbose: bool = True,
+        stopping_tol: float = 5 * 1e-4,
+        max_iter: int = 10,
+        max_pb_solved: int = 350,
+        scalarization_solver_options: Optional[Dict] = None,
     ) -> Tuple[str, Solution]:
         """Solve the problem.
+
+        Arguments
+        ---------
+        verbose: bool
+           Display the output of the algorithm.
+
+        stopping_tol: float
+           The stopping tolerance. When the haussdorf distance between the outer
+           approximation and the inner approximation is below stopping_tol * scale_factor,
+           the algorithm stops. Is always above or equal to MONMO_MIN_STOPPING_TOL = 1e-6.
+
+        max_iter: int
+           The maximum number of iterations allowed.
+
+        max_pb_solved: int
+           The maximum number of problems to be solved allowed. Do not account for the initial
+           problems.
+
+        scalarization_solver_options: optional[dict]
+           The options of the solver used to solve the scalarization subproblem.
+           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           the conventional way of giving options to a solver in cvxpy.
 
         Returns
         -------
@@ -90,7 +113,7 @@ class MONMOParSolver:
             print("Number of processes:", len(self._client.ncores()))
             print("Number of threads", sum(self._client.ncores().values()))
 
-        initial_step_status, sol = self._initial_step(sol)
+        initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
             if verbose:
                 print(
@@ -134,7 +157,9 @@ class MONMOParSolver:
         ideal_to_extreme_pts_hyp_dist = np.absolute(
             np.dot(extreme_pts_hyp_params, sol.ideal_objective_vector()) - 1.0
         ) / np.linalg.norm(extreme_pts_hyp_params)
-        scaled_stopping_tol = stopping_tol * max(1.0, ideal_to_extreme_pts_hyp_dist)
+        scaled_stopping_tol = max(stopping_tol, MONMO_MIN_STOPPING_TOL) * max(
+            1.0, ideal_to_extreme_pts_hyp_dist
+        )
 
         if verbose:
             print(f"Stopping tolerance: {scaled_stopping_tol:.5E}")
@@ -155,6 +180,9 @@ class MONMOParSolver:
                 f"{"-":>12}",
             )
 
+        # Set options
+        max_iter = min(max_iter, MONMO_MAX_ITER)
+
         explored_outer_vertices_information = []
         optimal_outer_vertices = []
 
@@ -163,7 +191,7 @@ class MONMOParSolver:
         elapsed_total_subproblems = 0.0
         total_nm_pbs_solved = 0
         total_nm_pbs_failed = 0
-        for iter in range(maxiter):
+        for iter in range(max_iter):
             # Remove vertices that do not belong to the set of outer vertices
             for index in reversed(range(len(explored_outer_vertices_information))):
                 remove_vertex = True
@@ -206,7 +234,15 @@ class MONMOParSolver:
             )
             tasks = [
                 dask.delayed(solve_norm_min_subproblem)(
-                    np.asarray(v), self._objectives, self._constraints, self._order_cone
+                    np.asarray(v),
+                    self._objectives,
+                    self._constraints,
+                    self._order_cone,
+                    **(
+                        scalarization_solver_options
+                        if scalarization_solver_options is not None
+                        else {}
+                    ),
                 )
                 for v in unknown_outer_vertices[:max_pb_to_solve_per_iter]
             ]
@@ -331,7 +367,9 @@ class MONMOParSolver:
 
         return status, sol
 
-    def _initial_step(self, sol: Solution) -> Tuple[str, Solution]:
+    def _initial_step(
+        self, sol: Solution, scalarization_solver_options: Optional[Dict]
+    ) -> Tuple[str, Solution]:
         """The initial step.
 
         Compute in parallel extreme solutions and their objective values according to the ordering cone.
@@ -340,6 +378,11 @@ class MONMOParSolver:
         ---------
         sol: Solution
             The solution (initialized).
+
+        scalarization_solver_options: optional[dict]
+            The options of the solver used to solve the extreme solution subproblems.
+            Must be given under a dict whose keys are pair of (str, any). Each key must follow
+            the conventional way of giving options to a solver in cvxpy.
 
         Returns
         -------
@@ -354,14 +397,28 @@ class MONMOParSolver:
         if self._order_cone is None:
             tasks = [
                 dask.delayed(solve_one_objective_subproblem)(
-                    obj, self._objectives, self._constraints
+                    obj,
+                    self._objectives,
+                    self._constraints,
+                    **(
+                        scalarization_solver_options
+                        if scalarization_solver_options is not None
+                        else {}
+                    ),
                 )
                 for obj in range(nobj)
             ]
         else:
             tasks = [
                 dask.delayed(solve_weighted_sum_subproblem)(
-                    weights, self._objectives, self._constraints
+                    weights,
+                    self._objectives,
+                    self._constraints,
+                    **(
+                        scalarization_solver_options
+                        if scalarization_solver_options is not None
+                        else {}
+                    ),
                 )
                 for weights in self._order_cone.inequalities
             ]

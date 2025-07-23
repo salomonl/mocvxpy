@@ -16,13 +16,17 @@ if __name__ == "__main__":
     objectives = [cp.Minimize(x[0]), cp.Minimize(x[1])]
     constraints = [x >= 0, cp.sum_squares(x - 1) <= 1]
 
+    pb = mocp.Problem(objectives, constraints)
+
     client = Client()
-    solver = mocp.MONMOParSolver(client, objectives, constraints)
-    status, solution = solver.solve()
+    objective_values = pb.solve(
+        client=client, solver="MONMO", scalarization_solver_options={"solver": cp.MOSEK}
+    )
+    print("status: ", pb.status)
 
     ax = plt.figure().add_subplot()
     ax.scatter(
-        [vertex[0] for vertex in solution.objective_values],
-        [vertex[1] for vertex in solution.objective_values],
+        [vertex[0] for vertex in objective_values],
+        [vertex[1] for vertex in objective_values],
     )
     plt.show()

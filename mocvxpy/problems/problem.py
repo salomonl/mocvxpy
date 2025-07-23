@@ -11,8 +11,12 @@ from cvxpy.utilities.deterministic import unique_list
 from cvxpy.utilities import performance_utils as perf
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.solvers.defines import (
+    MO_PARALLEL_SOLVERS,
+    MO_PARALLEL_SOLVERS_MAP,
     MO_SEQUENTIAL_SOLVERS,
     MO_SEQUENTIAL_SOLVERS_MAP,
+    VO_PARALLEL_SOLVERS,
+    VO_PARALLEL_SOLVERS_MAP,
     VO_SEQUENTIAL_SOLVERS,
     VO_SEQUENTIAL_SOLVERS_MAP,
 )
@@ -312,6 +316,9 @@ class Problem:
         ---------
         solver: str, optional.
             The solver to use. For example, "ADENA", "MONMO" or "MOVS". Use MOVS by default.
+        client: Client, optional
+            The dask client, that deals with distributing tasks. If not given, the algorithm
+            will execute in sequential.
         verbose: bool, optional.
             If True, displays information on the progression of the algorithm.
         stopping_tol: float
@@ -323,28 +330,48 @@ class Problem:
             Additional keywords arguments to specify solver specific options.
         """
         solver_name = kwargs.get("solver", None)
+        client = kwargs.get("client", None)
         if solver_name is None:
             solver_name = "MOVS"
         if self._order_cone is None:
-            if solver_name not in MO_SEQUENTIAL_SOLVERS:
-                raise ValueError("Solver not supported ", solver_name)
+            if client is None and solver_name not in MO_SEQUENTIAL_SOLVERS:
+                raise ValueError("Sequential solver not supported ", solver_name)
+            if client is not None and solver_name not in MO_PARALLEL_SOLVERS:
+                raise ValueError("Parallel solver not supported ", solver_name)
         else:
-            if solver_name not in VO_SEQUENTIAL_SOLVERS:
+            if client is None and solver_name not in VO_SEQUENTIAL_SOLVERS:
                 raise ValueError(
-                    "Solver not supported for vector optimization", solver_name
+                    "Sequential solver not supported for vector optimization",
+                    solver_name,
+                )
+            if client is not None and solver_name not in VO_PARALLEL_SOLVERS:
+                raise ValueError(
+                    "Parallel solver not supported for vector optimization", solver_name
                 )
 
         if self._order_cone is None:
-            solver = MO_SEQUENTIAL_SOLVERS_MAP[solver_name](
-                self._objectives, self._constraints
-            )
+            if client is None:
+                solver = MO_SEQUENTIAL_SOLVERS_MAP[solver_name](
+                    self._objectives, self._constraints
+                )
+            else:
+                solver = MO_PARALLEL_SOLVERS_MAP[solver_name](
+                    client, self._objectives, self._constraints
+                )
         else:
-            solver = VO_SEQUENTIAL_SOLVERS_MAP[solver_name](
-                self._objectives, self._constraints, self._order_cone
-            )
+            if client is None:
+                solver = VO_SEQUENTIAL_SOLVERS_MAP[solver_name](
+                    self._objectives, self._constraints, self._order_cone
+                )
+            else:
+                solver = VO_PARALLEL_SOLVERS_MAP[solver_name](
+                    client, self._objectives, self._constraints, self._order_cone
+                )
 
         # Pass corresponding solver keywords
-        solver_kwargs = {key: item for key, item in kwargs.items() if key not in ['solver']}
+        solver_kwargs = {
+            key: item for key, item in kwargs.items() if key not in ["client", "solver"]
+        }
         self._status, sol = solver.solve(**solver_kwargs)
 
         # Populate optimal decision variables

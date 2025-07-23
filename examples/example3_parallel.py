@@ -28,14 +28,18 @@ if __name__ == "__main__":
     ]
     constraints = [x[0] >= 1, x[1] >= 0, x <= [10, 4], x[0] + 2 * x[1] <= 10]
 
+    pb = mocp.Problem(objectives, constraints)
+
     client = Client()
-    solver = mocp.MONMOParSolver(client, objectives, constraints)
-    status, solution = solver.solve()
+    objective_values = pb.solve(
+        client=client, solver="MONMO", scalarization_solver_options={"solver": cp.MOSEK}
+    )
+    print("status: ", pb.status)
 
     ax = plt.figure().add_subplot(projection="3d")
     ax.scatter(
-        [vertex[0] for vertex in solution.objective_values],
-        [vertex[1] for vertex in solution.objective_values],
-        [vertex[2] for vertex in solution.objective_values],
+        [vertex[0] for vertex in objective_values],
+        [vertex[1] for vertex in objective_values],
+        [vertex[2] for vertex in objective_values],
     )
     plt.show()

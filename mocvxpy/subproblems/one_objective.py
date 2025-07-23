@@ -103,6 +103,9 @@ def solve_one_objective_subproblem(
     obj: int,
     objectives: List[Union[cp.Minimize, cp.Maximize]],
     constraints: Optional[List[cp.Constraint]] = None,
+    solver: Optional[str] = None,
+    verbose: bool = False,
+    **kwargs,
 ) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """Solve the one objective subproblem.
 
@@ -121,6 +124,15 @@ def solve_one_objective_subproblem(
         The problem's objectives.
     constraints: list
         The constraints on the problem variables.
+    solver: optional[str]
+        The solver to use.
+    solver_path: list of (str, dict) tuples or strings, optional
+        The solvers to use with optional arguments. The method tries the solvers
+        in the given order and returns the first solver's solution that succeeds.
+    verbose: optional[bool]
+        If True, displays the outputs of the solver.
+    **kwargs
+        Additional keyword arguments specifying solver specific options.
 
     Returns
     -------
@@ -130,7 +142,7 @@ def solve_one_objective_subproblem(
     """
     single_obj_pb = OneObjectiveSubproblem(objectives, constraints)
     single_obj_pb.parameters = obj
-    single_obj_status = single_obj_pb.solve()
+    single_obj_status = single_obj_pb.solve(solver=solver, verbose=verbose, **kwargs)
     if single_obj_status not in ["infeasible", "unbounded", "unsolved"]:
         return (
             single_obj_status,

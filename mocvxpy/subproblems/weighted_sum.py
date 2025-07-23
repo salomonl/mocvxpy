@@ -120,6 +120,9 @@ def solve_weighted_sum_subproblem(
     weights: np.ndarray,
     objectives: List[Union[cp.Minimize, cp.Maximize]],
     constraints: Optional[List[cp.Constraint]] = None,
+    solver: Optional[str] = None,
+    verbose: bool = False,
+    **kwargs,
 ) -> Tuple[str, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """Solve the weighted subproblem.
 
@@ -140,6 +143,15 @@ def solve_weighted_sum_subproblem(
         The problem's objectives.
     constraints: list
         The constraints on the problem variables.
+    solver: optional[str]
+        The solver to use.
+    solver_path: list of (str, dict) tuples or strings, optional
+        The solvers to use with optional arguments. The method tries the solvers
+        in the given order and returns the first solver's solution that succeeds.
+    verbose: optional[bool]
+        If True, displays the outputs of the solver.
+    **kwargs
+        Additional keyword arguments specifying solver specific options.
 
     Returns
     -------
@@ -149,7 +161,9 @@ def solve_weighted_sum_subproblem(
     """
     weighted_sum_pb = WeightedSumSubproblem(objectives, constraints)
     weighted_sum_pb.parameters = weights
-    weighted_sum_status = weighted_sum_pb.solve()
+    weighted_sum_status = weighted_sum_pb.solve(
+        solver=solver, verbose=verbose, **kwargs
+    )
     if weighted_sum_status not in ["infeasible", "unbounded", "unsolved"]:
         return (
             weighted_sum_status,
