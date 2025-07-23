@@ -173,4 +173,4 @@ def solve_weighted_sum_subproblem(
             weighted_sum_pb.dual_constraint_values(),
         )
     else:
-        return weighted_sum_status, np.ndarray([]), np.ndarray([]), np.ndarray([]), None
+        return weighted_sum_status, np.array([]), np.array([]), np.array([]), None

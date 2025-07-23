@@ -221,9 +221,9 @@ def solve_pascoletti_serafini_subproblem(
     else:
         return (
             ps_pb_status,
-            np.ndarray([]),
-            np.ndarray([]),
-            np.ndarray([]),
+            np.array([]),
+            np.array([]),
+            np.array([]),
             -1.0,
-            np.ndarray([]),
+            np.array([]),
         )

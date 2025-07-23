@@ -152,4 +152,4 @@ def solve_one_objective_subproblem(
             single_obj_pb.dual_constraint_values(),
         )
     else:
-        return single_obj_status, np.ndarray([]), np.ndarray([]), np.ndarray([]), None
+        return single_obj_status, np.array([]), np.array([]), np.array([]), None

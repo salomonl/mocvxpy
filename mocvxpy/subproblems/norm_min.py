@@ -209,9 +209,9 @@ def solve_norm_min_subproblem(
     else:
         return (
             norm_min_status,
-            np.ndarray([]),
-            np.ndarray([]),
-            np.ndarray([]),
+            np.array([]),
+            np.array([]),
+            np.array([]),
             -1.0,
-            np.ndarray([]),
+            np.array([]),
         )

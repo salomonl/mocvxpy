@@ -546,7 +546,7 @@ class MOVSParSolver:
                 else:
                     qp_pb.solve(**solver_options)
             except cp.SolverError:
-                return np.ndarray([]), False
+                return np.array([]), False
 
             if qp_pb.status not in ["infeasible", "unbounded"]:
                 p_values = (
