@@ -4,6 +4,7 @@ import numpy as np
 import time
 
 from dask.distributed import Client
+from itertools import batched
 from mocvxpy.constants import MIN_DIST_OBJ_VECS, MOVS_MAX_ITER, MOVS_MIN_STOPPING_TOL
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import number_of_variables
@@ -100,6 +101,8 @@ class MOVSParSolver:
         sol = Solution(nvars, nobj)
         Z = None if self._order_cone is None else self._order_cone.inequalities
 
+        ntotal_cores = sum(self._client.ncores().values())
+
         if verbose:
             print("MOVS Parallel algorithm:")
             print("Number of objectives:", nobj)
@@ -113,7 +116,7 @@ class MOVSParSolver:
                 ),
             )
             print("Number of processes:", len(self._client.ncores()))
-            print("Number of threads", sum(self._client.ncores().values()))
+            print("Number of threads", ntotal_cores)
 
         initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
@@ -250,27 +253,35 @@ class MOVSParSolver:
                 status = "vertex_selection_failure"
                 break
 
-            # Run tasks in parallel
-            tasks = [
-                dask.delayed(solve_pascoletti_serafini_subproblem)(
-                    sp_pair[:nobj],
-                    sp_pair[nobj:] - sp_pair[:nobj],
-                    self._objectives,
-                    self._constraints,
-                    self._order_cone,
-                    **(
-                        scalarization_solver_options
-                        if scalarization_solver_options is not None
-                        else {}
-                    ),
-                )
-                for sp_pair in vertex_selection_candidates
-            ]
-            start_ps_pb = time.perf_counter()
-            run_tasks = self._client.compute(tasks)
-            optimization_results = self._client.gather(run_tasks)
-            end_ps_pb = time.perf_counter()
-            elapsed_ps_pb = end_ps_pb - start_ps_pb
+            # Solve problems in parallel per batch to prevent potential memory
+            # issues due to the allocation of large problems
+            optimization_results = []
+            for vertex_pair_batch in batched(vertex_selection_candidates, ntotal_cores):
+                tasks = []
+                for sp_pair in vertex_pair_batch:
+                    tasks.append(
+                        dask.delayed(solve_pascoletti_serafini_subproblem)(
+                            sp_pair[:nobj],
+                            sp_pair[nobj:] - sp_pair[:nobj],
+                            self._objectives,
+                            self._constraints,
+                            self._order_cone,
+                            **(
+                                scalarization_solver_options
+                                if scalarization_solver_options is not None
+                                else {}
+                            ),
+                        )
+                    )
+
+                # Solve problems
+                start_ps_pb = time.perf_counter()
+                run_tasks = self._client.compute(tasks)
+                optimization_batch_results = self._client.gather(run_tasks)
+                end_ps_pb = time.perf_counter()
+                elapsed_ps_pb = end_ps_pb - start_ps_pb
+                optimization_results += optimization_batch_results
+                del tasks  # Try to decrease the memory allocated for the problems
 
             # Collect solutions
             nb_subproblems_failed_per_iter = 0
@@ -581,6 +592,7 @@ class MOVSParSolver:
         ]
         run_tasks = self._client.compute(tasks)
         optimization_results = self._client.gather(run_tasks)
+        del tasks
 
         # Collect solutions and number of qp solved
         new_vertex_selection_solutions = []

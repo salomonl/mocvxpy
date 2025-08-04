@@ -4,6 +4,7 @@ import numpy as np
 import time
 
 from dask.distributed import Client
+from itertools import batched
 from mocvxpy.constants import MIN_DIST_OBJ_VECS, MONMO_MAX_ITER, MONMO_MIN_STOPPING_TOL
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import number_of_variables
@@ -98,6 +99,8 @@ class MONMOParSolver:
         sol = Solution(nvars, nobj)
         Z = None if self._order_cone is None else self._order_cone.inequalities
 
+        ntotal_cores = sum(self._client.ncores().values())
+
         if verbose:
             print("MONMO Parallel algorithm:")
             print("Number of objectives:", nobj)
@@ -111,7 +114,7 @@ class MONMOParSolver:
                 ),
             )
             print("Number of processes:", len(self._client.ncores()))
-            print("Number of threads", sum(self._client.ncores().values()))
+            print("Number of threads", ntotal_cores)
 
         initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
@@ -229,30 +232,38 @@ class MONMOParSolver:
             nb_subproblems_solved_per_iter = 0
             nb_subproblems_failed_per_iter = 0
 
-            # Run problems in parallel
-            # TODO: add a way to limit the maximum number of problems to solve
+            # Run problems in parallel per batch to prevent potential memory
+            # issues due to the allocation of large problems
             max_pb_to_solve_per_iter = min(
                 max_pb_solved - total_nm_pbs_solved, len(unknown_outer_vertices)
             )
-            tasks = [
-                dask.delayed(solve_norm_min_subproblem)(
-                    np.asarray(v),
-                    self._objectives,
-                    self._constraints,
-                    self._order_cone,
-                    **(
-                        scalarization_solver_options
-                        if scalarization_solver_options is not None
-                        else {}
-                    ),
-                )
-                for v in unknown_outer_vertices[:max_pb_to_solve_per_iter]
-            ]
-            start_nm_pb_solved = time.perf_counter()
-            run_tasks = self._client.compute(tasks)
-            optimization_results = self._client.gather(run_tasks)
-            end_nm_pb_solved = time.perf_counter()
-            elapsed_subproblems_per_iter = end_nm_pb_solved - start_nm_pb_solved
+
+            optimization_results = []
+            for vertex_batch in batched(
+                unknown_outer_vertices[:max_pb_to_solve_per_iter], ntotal_cores
+            ):
+                tasks = [
+                    dask.delayed(solve_norm_min_subproblem)(
+                        np.asarray(v),
+                        self._objectives,
+                        self._constraints,
+                        self._order_cone,
+                        **(
+                            scalarization_solver_options
+                            if scalarization_solver_options is not None
+                            else {}
+                        ),
+                    )
+                    for v in vertex_batch
+                ]
+
+                start_nm_pb_solved = time.perf_counter()
+                run_tasks = self._client.compute(tasks)
+                optimization_batch_results = self._client.gather(run_tasks)
+                end_nm_pb_solved = time.perf_counter()
+                elapsed_subproblems_per_iter = end_nm_pb_solved - start_nm_pb_solved
+                optimization_results += optimization_batch_results
+                del tasks
 
             # Collect solutions
             for optimization_logs, vertex in zip(
