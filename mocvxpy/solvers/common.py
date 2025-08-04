@@ -45,9 +45,10 @@ def compute_extreme_objective_vectors(
     dual_objective_values = []
     dual_constraint_values = []
 
+    # NB: we do not filter solutions, even if they can be the same
+    # since their dual objective values are nonetheless different
     single_obj_pb = OneObjectiveSubproblem(objectives, constraints)
     status = "not_defined"
-    # TODO: filter solutions in case
     for obj in range(nobj):
         single_obj_pb.parameters = obj
         if solver_options is None:
@@ -120,5 +121,8 @@ def compute_extreme_points_hyperplane(extreme_pts: np.ndarray) -> Optional[np.nd
     # a1 zm[1] + a2 zm[2] + ... + am z[m] = 1
     # which is equivalent to:
     # Z * a = 1
-    hyp_eq: np.ndarray = np.linalg.solve(extreme_pts, np.ones(nobj))
-    return hyp_eq
+    try:
+        hyp_eq: np.ndarray = np.linalg.solve(extreme_pts, np.ones(nobj))
+        return hyp_eq
+    except np.linalg.LinAlgError:
+        return

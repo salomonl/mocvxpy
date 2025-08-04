@@ -147,18 +147,21 @@ class MONMOSolver:
 
         # Compute scaled stopping tolerance
         # 1- Approximately compute a hyperplane passing by all extreme points
-        extreme_pts_hyp_params: np.ndarray = compute_extreme_points_hyperplane(
+        extreme_pts_hyp_params = compute_extreme_points_hyperplane(
             sol.extreme_objective_vectors()
         )
-        # 2- Compute distance from the ideal point to the hyperplane
-        #    Given a hyperplane a^T x - 1 = 0 and a point x0, the distance is
-        #    given by: d = |a^T x0 - 1| / ||a||
-        ideal_to_extreme_pts_hyp_dist = np.absolute(
-            np.dot(extreme_pts_hyp_params, sol.ideal_objective_vector()) - 1.0
-        ) / np.linalg.norm(extreme_pts_hyp_params)
-        scaled_stopping_tol = max(stopping_tol, MONMO_MIN_STOPPING_TOL) * max(
-            1.0, ideal_to_extreme_pts_hyp_dist
-        )
+        if extreme_pts_hyp_params is None:
+            scaled_stopping_tol = max(stopping_tol, MONMO_MIN_STOPPING_TOL)
+        else:
+            # 2- Compute distance from the ideal point to the hyperplane
+            #    Given a hyperplane a^T x - 1 = 0 and a point x0, the distance is
+            #    given by: d = |a^T x0 - 1| / ||a||
+            ideal_to_extreme_pts_hyp_dist = np.absolute(
+                np.dot(extreme_pts_hyp_params, sol.ideal_objective_vector()) - 1.0
+            ) / np.linalg.norm(extreme_pts_hyp_params)
+            scaled_stopping_tol = max(stopping_tol, MONMO_MIN_STOPPING_TOL) * max(
+                1.0, ideal_to_extreme_pts_hyp_dist
+            )
 
         # Set other stopping criteria
         max_iter = min(max_iter, MONMO_MAX_ITER)
