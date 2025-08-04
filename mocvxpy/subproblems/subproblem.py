@@ -2,7 +2,7 @@ import abc
 import cvxpy as cp
 import numpy as np
 
-from copy import copy
+from copy import deepcopy
 from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import (
     extract_variables_from_problem,
@@ -37,12 +37,12 @@ class Subproblem(metaclass=abc.ABCMeta):
         nobj = len(objectives)
         if nobj <= 1:
             raise ValueError("The number of objectives must be superior to 1", nobj)
-        self._objectives = copy(objectives)
-
+        # When doing a deepcopy, we need to copy both objectives and constraints
+        # together to keep relations between variables
         if constraints is None:
-            self._constraints = []
+            self._objectives, self._constraints = deepcopy(objectives), []
         else:
-            self._constraints = copy(constraints)
+            self._objectives, self._constraints = deepcopy((objectives, constraints))
 
         self._order_cone = order_cone
 
