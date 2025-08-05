@@ -275,10 +275,9 @@ class MOVSParSolver:
 
             # Solve problems in parallel per batch to prevent potential memory
             # issues due to the allocation of large problems
-            optimization_results = []
+            tasks = []
             for vertex_pair_batch in batched(vertex_selection_candidates, ntotal_cores):
                 nvertices_pair = len(vertex_pair_batch)
-                tasks = []
                 for sp_pair, ps_pb in zip(
                     vertex_pair_batch, ps_subproblems_poll[:nvertices_pair]
                 ):
@@ -295,14 +294,13 @@ class MOVSParSolver:
                         )
                     )
 
-                # Solve problems
-                start_ps_pb = time.perf_counter()
-                run_tasks = self._client.compute(tasks)
-                optimization_batch_results = self._client.gather(run_tasks)
-                end_ps_pb = time.perf_counter()
-                elapsed_ps_pb = end_ps_pb - start_ps_pb
-                optimization_results += optimization_batch_results
-                del tasks  # Try to decrease the memory allocated for the problems
+            # Solve problems
+            start_ps_pb = time.perf_counter()
+            run_tasks = self._client.compute(tasks)
+            optimization_results = self._client.gather(run_tasks)
+            end_ps_pb = time.perf_counter()
+            elapsed_ps_pb = end_ps_pb - start_ps_pb
+            del tasks  # Try to decrease the memory allocated for the problems
 
             # Collect solutions
             nb_subproblems_failed_per_iter = 0

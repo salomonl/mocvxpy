@@ -255,12 +255,11 @@ class MONMOParSolver:
                 max_pb_solved - total_nm_pbs_solved, len(unknown_outer_vertices)
             )
 
-            optimization_results = []
+            tasks = []
             for vertex_batch in batched(
                 unknown_outer_vertices[:max_pb_to_solve_per_iter], ntotal_cores
             ):
                 nvertices_batch = len(vertex_batch)
-                tasks = []
                 for v, norm_min_pb in zip(
                     vertex_batch, norm_min_subproblems_poll[:nvertices_batch]
                 ):
@@ -276,13 +275,13 @@ class MONMOParSolver:
                         )
                     )
 
-                start_nm_pb_solved = time.perf_counter()
-                run_tasks = self._client.compute(tasks)
-                optimization_batch_results = self._client.gather(run_tasks)
-                end_nm_pb_solved = time.perf_counter()
-                elapsed_subproblems_per_iter = end_nm_pb_solved - start_nm_pb_solved
-                optimization_results += optimization_batch_results
-                # del tasks
+            # Solve problems
+            start_nm_pb_solved = time.perf_counter()
+            run_tasks = self._client.compute(tasks)
+            optimization_results = self._client.gather(run_tasks)
+            end_nm_pb_solved = time.perf_counter()
+            elapsed_subproblems_per_iter = end_nm_pb_solved - start_nm_pb_solved
+            del tasks  # Try to decrease the memory allocated for the problems
 
             # Collect solutions
             for optimization_logs, vertex in zip(
