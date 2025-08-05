@@ -101,8 +101,7 @@ class OneObjectiveSubproblem(Subproblem):
 
 def solve_one_objective_subproblem(
     obj: int,
-    objectives: List[Union[cp.Minimize, cp.Maximize]],
-    constraints: Optional[List[cp.Constraint]] = None,
+    single_obj_pb: OneObjectiveSubproblem,
     solver: Optional[str] = None,
     verbose: bool = False,
     **kwargs,
@@ -112,18 +111,16 @@ def solve_one_objective_subproblem(
     Solve min sum fi(x)
           x in Omega
 
-    NB: Create and solve the corresponding subproblem, which involves a cost.
-    This function is used for parallelism, since it guarantees the independence of
-    the created subproblems.
+    NB: Solve the corresponding subproblem. This function is specifically used
+    for parallelism. It is the responsability of the user to be sure that each
+    subproblem instance is independant of each other.
 
     Arguments
     ---------
     obj: int
         The index of the objective to optimize.
-    objectives: list[Minimize or Maximize]
-        The problem's objectives.
-    constraints: list
-        The constraints on the problem variables.
+    single_obj_pb: OneObjectiveSubproblem
+        The subproblem instance to solve.
     solver: optional[str]
         The solver to use.
     solver_path: list of (str, dict) tuples or strings, optional
@@ -140,7 +137,6 @@ def solve_one_objective_subproblem(
         The status of the optimization, the optimal solution values, the optimal objective values,
         the dual objective values, and the dual constraint values (if they exist).
     """
-    single_obj_pb = OneObjectiveSubproblem(objectives, constraints)
     single_obj_pb.parameters = obj
     single_obj_status = single_obj_pb.solve(solver=solver, verbose=verbose, **kwargs)
     if single_obj_status not in ["infeasible", "unbounded", "unsolved"]:
@@ -148,7 +144,12 @@ def solve_one_objective_subproblem(
             single_obj_status,
             single_obj_pb.solution(),
             single_obj_pb.objective_values(),
-            np.array([1.0 if i == obj else 0.0 for i in range(len(objectives))]),
+            np.array(
+                [
+                    1.0 if i == obj else 0.0
+                    for i in range(len(single_obj_pb._objectives))
+                ]
+            ),
             single_obj_pb.dual_constraint_values(),
         )
     else:

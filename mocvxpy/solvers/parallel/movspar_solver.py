@@ -10,9 +10,18 @@ from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import number_of_variables
 from mocvxpy.solvers.common import compute_extreme_points_hyperplane
 from mocvxpy.solvers.solution import OuterApproximation, Solution
-from mocvxpy.subproblems.one_objective import solve_one_objective_subproblem
-from mocvxpy.subproblems.pascoletti_serafini import solve_pascoletti_serafini_subproblem
-from mocvxpy.subproblems.weighted_sum import solve_weighted_sum_subproblem
+from mocvxpy.subproblems.one_objective import (
+    OneObjectiveSubproblem,
+    solve_one_objective_subproblem,
+)
+from mocvxpy.subproblems.pascoletti_serafini import (
+    PascolettiSerafiniSubproblem,
+    solve_pascoletti_serafini_subproblem,
+)
+from mocvxpy.subproblems.weighted_sum import (
+    WeightedSumSubproblem,
+    solve_weighted_sum_subproblem,
+)
 from typing import Dict, List, Optional, Tuple, Union
 
 
@@ -192,6 +201,17 @@ class MOVSParSolver:
         # Set options
         max_iter = min(MOVS_MAX_ITER, max_iter)
 
+        # Allocate a set of subproblems that will be reused during the computation
+        ps_subproblems_poll = [
+            dask.delayed(PascolettiSerafiniSubproblem)(
+                self._objectives, self._constraints, self._order_cone
+            )
+            for _ in range(ntotal_cores)
+        ]
+        ps_subproblems_poll = [
+            self._client.persist(ps_pb_task) for ps_pb_task in ps_subproblems_poll
+        ]
+
         status = "maxiter_reached"
         vertex_selection_solutions = np.array([]).reshape((0, 2 * nobj))
         visited_outer_vertices = np.array([]).reshape((0, nobj))
@@ -257,15 +277,16 @@ class MOVSParSolver:
             # issues due to the allocation of large problems
             optimization_results = []
             for vertex_pair_batch in batched(vertex_selection_candidates, ntotal_cores):
+                nvertices_pair = len(vertex_pair_batch)
                 tasks = []
-                for sp_pair in vertex_pair_batch:
+                for sp_pair, ps_pb in zip(
+                    vertex_pair_batch, ps_subproblems_poll[:nvertices_pair]
+                ):
                     tasks.append(
                         dask.delayed(solve_pascoletti_serafini_subproblem)(
                             sp_pair[:nobj],
                             sp_pair[nobj:] - sp_pair[:nobj],
-                            self._objectives,
-                            self._constraints,
-                            self._order_cone,
+                            ps_pb,
                             **(
                                 scalarization_solver_options
                                 if scalarization_solver_options is not None
@@ -391,8 +412,7 @@ class MOVSParSolver:
             tasks = [
                 dask.delayed(solve_one_objective_subproblem)(
                     obj,
-                    self._objectives,
-                    self._constraints,
+                    OneObjectiveSubproblem(self._objectives, self._constraints),
                     **(
                         scalarization_solver_options
                         if scalarization_solver_options is not None
@@ -405,8 +425,7 @@ class MOVSParSolver:
             tasks = [
                 dask.delayed(solve_weighted_sum_subproblem)(
                     weights,
-                    self._objectives,
-                    self._constraints,
+                    WeightedSumSubproblem(self._objectives, self._constraints),
                     **(
                         scalarization_solver_options
                         if scalarization_solver_options is not None

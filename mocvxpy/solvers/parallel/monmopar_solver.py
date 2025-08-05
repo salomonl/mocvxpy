@@ -10,9 +10,15 @@ from mocvxpy.expressions.order_cone import OrderCone
 from mocvxpy.problems.utilities import number_of_variables
 from mocvxpy.solvers.common import compute_extreme_points_hyperplane
 from mocvxpy.solvers.solution import OuterApproximation, Solution
-from mocvxpy.subproblems.norm_min import solve_norm_min_subproblem
-from mocvxpy.subproblems.one_objective import solve_one_objective_subproblem
-from mocvxpy.subproblems.weighted_sum import solve_weighted_sum_subproblem
+from mocvxpy.subproblems.norm_min import NormMinSubproblem, solve_norm_min_subproblem
+from mocvxpy.subproblems.one_objective import (
+    OneObjectiveSubproblem,
+    solve_one_objective_subproblem,
+)
+from mocvxpy.subproblems.weighted_sum import (
+    WeightedSumSubproblem,
+    solve_weighted_sum_subproblem,
+)
 from typing import Dict, List, Optional, Tuple, Union
 
 
@@ -188,6 +194,17 @@ class MONMOParSolver:
         # Set options
         max_iter = min(max_iter, MONMO_MAX_ITER)
 
+        # Allocate a set of subproblems that will be reused during the computation
+        norm_min_subproblems_poll = [
+            dask.delayed(NormMinSubproblem)(
+                self._objectives, self._constraints, self._order_cone
+            )
+            for _ in range(ntotal_cores)
+        ]
+        norm_min_subproblems_poll = [
+            self._client.persist(ps_pb_task) for ps_pb_task in norm_min_subproblems_poll
+        ]
+
         explored_outer_vertices_information = []
         optimal_outer_vertices = []
 
@@ -242,20 +259,22 @@ class MONMOParSolver:
             for vertex_batch in batched(
                 unknown_outer_vertices[:max_pb_to_solve_per_iter], ntotal_cores
             ):
-                tasks = [
-                    dask.delayed(solve_norm_min_subproblem)(
-                        np.asarray(v),
-                        self._objectives,
-                        self._constraints,
-                        self._order_cone,
-                        **(
-                            scalarization_solver_options
-                            if scalarization_solver_options is not None
-                            else {}
-                        ),
+                nvertices_batch = len(vertex_batch)
+                tasks = []
+                for v, norm_min_pb in zip(
+                    vertex_batch, norm_min_subproblems_poll[:nvertices_batch]
+                ):
+                    tasks.append(
+                        dask.delayed(solve_norm_min_subproblem)(
+                            np.asarray(v),
+                            norm_min_pb,
+                            **(
+                                scalarization_solver_options
+                                if scalarization_solver_options is not None
+                                else {}
+                            ),
+                        )
                     )
-                    for v in vertex_batch
-                ]
 
                 start_nm_pb_solved = time.perf_counter()
                 run_tasks = self._client.compute(tasks)
@@ -263,7 +282,7 @@ class MONMOParSolver:
                 end_nm_pb_solved = time.perf_counter()
                 elapsed_subproblems_per_iter = end_nm_pb_solved - start_nm_pb_solved
                 optimization_results += optimization_batch_results
-                del tasks
+                # del tasks
 
             # Collect solutions
             for optimization_logs, vertex in zip(
@@ -411,8 +430,7 @@ class MONMOParSolver:
             tasks = [
                 dask.delayed(solve_one_objective_subproblem)(
                     obj,
-                    self._objectives,
-                    self._constraints,
+                    OneObjectiveSubproblem(self._objectives, self._constraints),
                     **(
                         scalarization_solver_options
                         if scalarization_solver_options is not None
@@ -425,8 +443,7 @@ class MONMOParSolver:
             tasks = [
                 dask.delayed(solve_weighted_sum_subproblem)(
                     weights,
-                    self._objectives,
-                    self._constraints,
+                    WeightedSumSubproblem(self._objectives, self._constraints),
                     **(
                         scalarization_solver_options
                         if scalarization_solver_options is not None

@@ -118,8 +118,7 @@ class WeightedSumSubproblem(Subproblem):
 
 def solve_weighted_sum_subproblem(
     weights: np.ndarray,
-    objectives: List[Union[cp.Minimize, cp.Maximize]],
-    constraints: Optional[List[cp.Constraint]] = None,
+    weighted_sum_pb: WeightedSumSubproblem,
     solver: Optional[str] = None,
     verbose: bool = False,
     **kwargs,
@@ -131,18 +130,16 @@ def solve_weighted_sum_subproblem(
 
     and its dual.
 
-    NB: Create and solve the corresponding subproblem, which involves a cost.
-    This function is used for parallelism, since it guarantees the independence of
-    the created subproblems.
+    NB: Solve the corresponding subproblem. This function is specifically used
+    for parallelism. It is the responsability of the user to be sure that each
+    subproblem instance is independant of each other.
 
     Arguments
     ---------
     weights: np.ndarray
         The weights.
-    objectives: list[Minimize or Maximize]
-        The problem's objectives.
-    constraints: list
-        The constraints on the problem variables.
+    weighted_sum_pb: WeightedSumSubproblem
+        The subproblem instance to solve.
     solver: optional[str]
         The solver to use.
     solver_path: list of (str, dict) tuples or strings, optional
@@ -159,7 +156,6 @@ def solve_weighted_sum_subproblem(
         The status of the optimization, the optimal solution values, the optimal objective values,
         the dual objective values, and the dual constraint values (if they exist).
     """
-    weighted_sum_pb = WeightedSumSubproblem(objectives, constraints)
     weighted_sum_pb.parameters = weights
     weighted_sum_status = weighted_sum_pb.solve(
         solver=solver, verbose=verbose, **kwargs

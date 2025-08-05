@@ -156,9 +156,7 @@ class PascolettiSerafiniSubproblem(Subproblem):
 def solve_pascoletti_serafini_subproblem(
     outer_vertex: np.ndarray,
     direction: np.ndarray,
-    objectives: List[Union[cp.Minimize, cp.Maximize]],
-    constraints: Optional[List[cp.Constraint]] = None,
-    order_cone: Optional[OrderCone] = None,
+    ps_pb: PascolettiSerafiniSubproblem,
     solver: Optional[str] = None,
     verbose: bool = False,
     **kwargs,
@@ -174,9 +172,9 @@ def solve_pascoletti_serafini_subproblem(
 
     and its dual.
 
-    NB: Create and solve the corresponding subproblem, which involves a cost.
-    This function is used for parallelism, since it guarantees the independence of
-    the created subproblems.
+    NB: Solve the corresponding subproblem. This function is specifically used
+    for parallelism. It is the responsability of the user to be sure that each
+    subproblem instance is independant of each other.
 
     Arguments
     ---------
@@ -184,12 +182,8 @@ def solve_pascoletti_serafini_subproblem(
         The outer vertex (vref).
     direction: np.ndarray
         The direction.
-    objectives: list[Minimize or Maximize]
-        The problem's objectives.
-    constraints: list
-        The constraints on the problem variables.
-    order_cone: Optional[OrderCone]
-        The order cone of the problem.
+    ps_pb: PascolettiSerafiniSubproblem
+        The subproblem instance to solve.
     solver: optional[str]
         The solver to use.
     solver_path: list of (str, dict) tuples or strings, optional
@@ -206,7 +200,6 @@ def solve_pascoletti_serafini_subproblem(
         The status of the optimization, the optimal solution values, the optimal objective values,
         the dual objective values and the optimal value of the pascoletti-serafini subproblem.
     """
-    ps_pb = PascolettiSerafiniSubproblem(objectives, constraints, order_cone)
     ps_pb.parameters = np.concatenate((outer_vertex, direction))
     ps_pb_status = ps_pb.solve(solver=solver, verbose=verbose, **kwargs)
     if ps_pb_status not in ["infeasible", "unbounded", "unsolved"]:

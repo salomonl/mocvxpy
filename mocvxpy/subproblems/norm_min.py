@@ -145,9 +145,7 @@ class NormMinSubproblem(Subproblem):
 
 def solve_norm_min_subproblem(
     outer_vertex: np.ndarray,
-    objectives: List[Union[cp.Minimize, cp.Maximize]],
-    constraints: Optional[List[cp.Constraint]] = None,
-    order_cone: Optional[OrderCone] = None,
+    norm_min_pb: NormMinSubproblem,
     solver: Optional[str] = None,
     verbose: bool = False,
     **kwargs,
@@ -163,20 +161,16 @@ def solve_norm_min_subproblem(
 
     and its dual.
 
-    NB: Create and solve the corresponding subproblem, which involves a cost.
-    This function is used for parallelism, since it guarantees the independence of
-    the created subproblems.
+    NB: Solve the corresponding subproblem. This function is specifically used
+    for parallelism. It is the responsability of the user to be sure that each
+    subproblem instance is independant of each other.
 
     Arguments
     ---------
     outer_vertex: np.ndarray
         The outer vertex (vref).
-    objectives: list[Minimize or Maximize]
-        The problem's objectives.
-    constraints: list
-        The constraints on the problem variables.
-    order_cone: Optional[OrderCone]
-        The order cone of the problem.
+    norm_min_pb: NormMinSubproblem
+        The subproblem instance to solve.
     solver: optional[str]
         The solver to use.
     solver_path: list of (str, dict) tuples or strings, optional
@@ -194,7 +188,6 @@ def solve_norm_min_subproblem(
         the dual objective values, the optimal value of the norm min subproblem and the dual
         values of the constraints (if they exist).
     """
-    norm_min_pb = NormMinSubproblem(objectives, constraints, order_cone)
     norm_min_pb.parameters = outer_vertex
     norm_min_status = norm_min_pb.solve(solver=solver, verbose=verbose, **kwargs)
     if norm_min_status not in ["infeasible", "unbounded", "unsolved"]:
