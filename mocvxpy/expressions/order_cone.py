@@ -1,8 +1,7 @@
-import cdd
 import numpy as np
 
-from cdd import gmp
-from fractions import Fraction
+from mocvxpy.utilities.polyhedron import Polyhedron
+
 
 class OrderCone:
     """The order polyhedral cone of a multiobjective problem.
@@ -18,11 +17,10 @@ class OrderCone:
     A: np.ndarray
        The matrix that defines the ordering cone
     """
+
     def __init__(self, A: np.ndarray) -> None:
         if len(A.shape) != 2:
-            raise ValueError(
-                f"A must be a two dimensional matrix. Get {A.shape}"
-            )
+            raise ValueError(f"A must be a two dimensional matrix. Get {A.shape}")
 
         A_rank = np.linalg.matrix_rank(A)
         if A_rank != A.shape[1]:
@@ -51,35 +49,14 @@ class OrderCone:
             return self._rays
 
         # Compute its V-representation from its H-representation.
-        try:
-            halfspaces = [[0.0] + h.tolist() for h in self.inequalities]
-            hrep = cdd.matrix_from_array(
-                halfspaces, rep_type=cdd.RepType.INEQUALITY
-            )
-            cdd.matrix_canonicalize(hrep)
-            vpoly = cdd.polyhedron_from_matrix(hrep)
-            vrep = cdd.copy_generators(vpoly)
-            self._rays = np.asarray([
-                [vi for vi in ray[1:]]
-                for ray in vrep.array
-            ])
-            return self._rays
-        except RuntimeError:
-            pass
+        ninequalities = self.inequalities.shape[0]
+        poly = Polyhedron(A=-self.inequalities, b=np.zeros(ninequalities))
+        self._rays = poly.generators[
+            :, 1:
+        ]  # No need to check if they are vertices or rays.
 
-        # Recompute its V-representation with exact precision
-        halfspaces = [[0] + [Fraction(hi) for hi in h] for h in self.inequalities]
-        hrep = gmp.matrix_from_array(
-            halfspaces, rep_type=cdd.RepType.INEQUALITY
-        )
-        gmp.matrix_canonicalize(hrep)
-        vpoly = gmp.polyhedron_from_matrix(hrep)
-        vrep = gmp.copy_generators(vpoly)
-        self._rays = np.asarray([
-            [float(vi) for vi in ray[1:]]
-            for ray in vrep.array
-        ])
         return self._rays
+
 
 def compute_order_cone_from_its_rays(D: np.ndarray) -> OrderCone:
     """Compute the H-representation of the order cone given its rays.
@@ -100,48 +77,21 @@ def compute_order_cone_from_its_rays(D: np.ndarray) -> OrderCone:
     """
     nobj = D.shape[1]
     if nobj <= 1:
-        raise ValueError("The number of columns of D must be superior or equal to 2", nobj)
+        raise ValueError(
+            "The number of columns of D must be superior or equal to 2", nobj
+        )
     nrays = D.shape[0]
     if nrays < nobj:
-        raise ValueError(f"The number of rows of D ({nrays:d}) must be superior or equal to",
-                         f"the number of columns of D ({nobj:d}).")
-
-    v_representation = [[0.0] + ray.tolist() for ray in D]
-
-    # Compute h-representation
-    try:
-        vmat = cdd.matrix_from_array(
-            v_representation, rep_type=cdd.RepType.GENERATOR
+        raise ValueError(
+            f"The number of rows of D ({nrays:d}) must be superior or equal to",
+            f"the number of columns of D ({nobj:d}).",
         )
-        cdd.matrix_canonicalize(vmat)
-        vpoly = cdd.polyhedron_from_matrix(vmat)
-        hmat = cdd.copy_inequalities(vpoly)
-        cdd.matrix_redundancy_remove(hmat)
-        Z = [z[1:] for z in hmat.array]
-        C = OrderCone(np.asarray(Z))
 
-        # Set directly its rays
-        C._rays = np.copy(D)
-        return C
-    except RuntimeError:
-        pass
+    # Compute its h-representation
+    poly = Polyhedron(D=D)
+    Z = poly.halfspaces[:, 1:]
 
-    # Recompute but use the exact precision
-    v_exact_representation = []
-    for vertex in v_representation:
-        v_exact = [Fraction(vi) for vi in vertex]
-        v_exact_representation.append(v_exact)
-    vmat = gmp.matrix_from_array(
-        v_exact_representation, rep_type=cdd.RepType.GENERATOR
-    )
-    gmp.matrix_canonicalize(vmat)
-    vpoly = gmp.polyhedron_from_matrix(vmat)
-    hmat_exact = gmp.copy_inequalities(vpoly)
-    hmat = []
-    for halfspace in hmat_exact.array:
-        hmat.append([float(hi) for hi in halfspace])
-    Z = [z[1:] for z in hmat]
-    C = OrderCone(np.asarray(Z))
+    C = OrderCone(Z)
 
     # Set directly its rays
     C._rays = np.copy(D)
