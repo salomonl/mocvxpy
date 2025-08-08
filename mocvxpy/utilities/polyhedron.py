@@ -93,10 +93,10 @@ class Polyhedron:
                 )
             if np.any(b == np.inf):
                 raise ValueError(
-                    f"One of the constraints of the H-representation does not have a finite bound"
+                    "One of the constraints of the H-representation does not have a finite bound"
                 )
             if np.any(b == -np.inf):
-                raise ValueError(f"The problem is infeasible")
+                raise ValueError("The problem is infeasible")
 
         self._halfspaces = None
         self._generators = None
