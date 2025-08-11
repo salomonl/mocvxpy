@@ -110,6 +110,10 @@ class Polyhedron:
         self._halfspaces = None
         self._equality_indexes = None
         self._generators = None
+
+        # Flag to precise if H-representation is computed using exact or floating point arithmetic
+        # For the moment, the V-representation is always computed in exact arithmetic
+        self._use_gmp_vpolyhedron = False
         self._vpolyhedron = None
         self._hpolyhedron = None
 
@@ -146,6 +150,7 @@ class Polyhedron:
             cdd.matrix_redundancy_remove(hmat)
             self._equality_indexes = hmat.lin_set
             hmat = hmat.array
+            vmat = vmat.array
         except RuntimeError:
             # Recompute but use the exact precision: note that it is slower
             v_exact_representation = []
@@ -155,6 +160,7 @@ class Polyhedron:
             vmat_exact = gmp.matrix_from_array(
                 v_exact_representation, rep_type=cdd.RepType.GENERATOR
             )
+            self._use_gmp_vpolyhedron = True
             gmp.matrix_canonicalize(vmat_exact)
             self._vpolyhedron = gmp.polyhedron_from_matrix(vmat_exact)
             hmat_exact = gmp.copy_inequalities(self._vpolyhedron)
@@ -208,6 +214,8 @@ class Polyhedron:
             halfspace_exact = [Fraction(h) for h in halfspace]
             hrep_exact.append(halfspace_exact)
         hrep_exact = gmp.matrix_from_array(hrep_exact, rep_type=cdd.RepType.INEQUALITY)
+        if self._equality_indexes is not None:
+            hrep_exact.lin_set = self._equality_indexes
         self._hpolyhedron = gmp.polyhedron_from_matrix(hrep_exact)
         vrep = gmp.copy_generators(self._hpolyhedron)
 
@@ -304,6 +312,7 @@ class Polyhedron:
 
         return self._generators[self._generators[:, 0] == 0, 1:]
 
+    @property
     def adjacent_vertex_list(self):
         """
         Returns
@@ -314,13 +323,16 @@ class Polyhedron:
         Must be used in combination with self.generators()
         """
         if self._hpolyhedron is not None:
-            return cdd.copy_adjacency(self._hpolyhedron)
+            return gmp.copy_adjacency(self._hpolyhedron)
 
         if self._vpolyhedron is not None:
+            if self._use_gmp_vpolyhedron:
+                return gmp.copy_input_adjacency(self._vpolyhedron)
             return cdd.copy_input_adjacency(self._vpolyhedron)
 
         raise RuntimeError()
 
+    @property
     def incident_vertex_list(self):
         """
         Returns
@@ -331,13 +343,16 @@ class Polyhedron:
         Must be used in combination with self.generators() and self.halfspaces()
         """
         if self._hpolyhedron is not None:
-            return cdd.copy_incidence(self._hpolyhedron)
+            return gmp.copy_incidence(self._hpolyhedron)
 
         if self._vpolyhedron is not None:
+            if self._use_gmp_vpolyhedron:
+                return gmp.copy_input_incidence(self._vpolyhedron)
             return cdd.copy_input_incidence(self._vpolyhedron)
 
         raise RuntimeError()
 
+    @property
     def adjacent_faces_list(self):
         """
         Returns
@@ -348,13 +363,16 @@ class Polyhedron:
         Must be used in combination with self.halfspaces()
         """
         if self._hpolyhedron is not None:
-            return cdd.copy_input_adjacency(self._hpolyhedron)
+            return gmp.copy_input_adjacency(self._hpolyhedron)
 
         if self._vpolyhedron is not None:
+            if self._use_gmp_vpolyhedron:
+                return gmp.copy_adjacency(self._vpolyhedron)
             return cdd.copy_adjacency(self._vpolyhedron)
 
         raise RuntimeError()
 
+    @property
     def incident_faces_list(self):
         """
         Returns
@@ -365,9 +383,11 @@ class Polyhedron:
         Must be used in combination with self.halfspaces() and self.generators()
         """
         if self._hpolyhedron is not None:
-            return cdd.copy_input_incidence(self._hpolyhedron)
+            return gmp.copy_input_incidence(self._hpolyhedron)
 
         if self._vpolyhedron is not None:
+            if self._use_gmp_vpolyhedron:
+                return gmp.copy_incidence(self._vpolyhedron)
             return cdd.copy_incidence(self._vpolyhedron)
 
         raise RuntimeError()
