@@ -10,7 +10,7 @@ import numpy as np
 from cdd import gmp
 from fractions import Fraction
 from mocvxpy.constants import MIN_TOL_HYPERPLANES
-from typing import Optional
+from typing import Optional, Set
 
 
 class Polyhedron:
@@ -35,6 +35,8 @@ class Polyhedron:
         The inequality matrix.
     b: np.ndarray, optional.
         The rhs vector of the inequalities.
+    eq_indexes: set{int}, optional.
+        The set of linear equality indexes, i.e., {i in I: a_i^T x = b}.
     V: np.ndarray, optional.
         The matrix of vertices. Each row describes one vertex.
     D: np.ndarray, optional.
@@ -48,6 +50,7 @@ class Polyhedron:
         self,
         A: Optional[np.ndarray] = None,
         b: Optional[np.ndarray] = None,
+        eq_indexes: Optional[Set[int]] = None,
         V: Optional[np.ndarray] = None,
         D: Optional[np.ndarray] = None,
     ) -> None:
@@ -97,14 +100,22 @@ class Polyhedron:
                 )
             if np.any(b == -np.inf):
                 raise ValueError("The problem is infeasible")
+            if eq_indexes is not None:
+                for ind in eq_indexes:
+                    if ind >= A.shape[0] or ind < 0:
+                        raise ValueError(
+                            f"The equality constraint index {ind} does not belong to the set of inequality constraints"
+                        )
 
         self._halfspaces = None
+        self._equality_indexes = None
         self._generators = None
         self._vpolyhedron = None
         self._hpolyhedron = None
 
         if A is not None:
             self._halfspaces = np.column_stack((b, -A))
+            self._equality_indexes = eq_indexes
             self._compute_vrepresentation()
         else:
             self._generators = []
@@ -133,6 +144,7 @@ class Polyhedron:
             self._vpolyhedron = cdd.polyhedron_from_matrix(vmat)
             hmat = cdd.copy_inequalities(self._vpolyhedron)
             cdd.matrix_redundancy_remove(hmat)
+            self._equality_indexes = hmat.lin_set
             hmat = hmat.array
         except RuntimeError:
             # Recompute but use the exact precision: note that it is slower
@@ -146,6 +158,7 @@ class Polyhedron:
             gmp.matrix_canonicalize(vmat_exact)
             self._vpolyhedron = gmp.polyhedron_from_matrix(vmat_exact)
             hmat_exact = gmp.copy_inequalities(self._vpolyhedron)
+            self._equality_indexes = hmat_exact.lin_set
             hmat = []
             for halfspace in hmat_exact.array:
                 hmat.append([float(hi) for hi in halfspace])
@@ -175,6 +188,8 @@ class Polyhedron:
             hrep = cdd.matrix_from_array(
                 self._halfspaces, rep_type=cdd.RepType.INEQUALITY
             )
+            if self._equality_indexes is not None:
+                hrep.lin_set = self._equality_indexes
             cdd.matrix_canonicalize(hrep)
             self._halfspaces = []
             for halfspace in hrep.array:
@@ -183,6 +198,7 @@ class Polyhedron:
                     [h if abs(h) >= MIN_TOL_HYPERPLANES else 0.0 for h in halfspace]
                 )
             self._halfspaces = np.asarray(self._halfspaces)
+            self._equality_indexes = hrep.lin_set
         except RuntimeError:
             pass
 
@@ -210,6 +226,19 @@ class Polyhedron:
             self._compute_hrepresentation()
 
         return self._halfspaces
+
+    @property
+    def equality_indexes(self) -> Set[int]:
+        """
+        Returns
+        -------
+        A set of equality indexes of the H-representation, i.e.,
+        {i in I: a_i^T x = b}.
+        """
+        if self._equality_indexes is None:
+            self._compute_hrepresentation()
+
+        return self._equality_indexes
 
     @property
     def generators(self) -> np.ndarray:
