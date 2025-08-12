@@ -68,6 +68,43 @@ class PascolettiSerafiniSubproblem(Subproblem):
 
         return cp.Problem(cp.Minimize(z), self._constraints)
 
+    def create_backup_subproblem(self) -> cp.Problem:
+        nobj = len(self._objectives)
+        # Create problem parameters
+        # 1- The outer vertex target.
+        vref = self._vref.value
+        # 2- The direction to reach the outer vertex target
+        direction = self._dir.value
+
+        z = cp.Variable()
+
+        # Add constraints: Z(f(x) - vref - z * dir) <= 0
+        Z = None if self._order_cone is None else self._order_cone.inequalities
+        # NB: exclude the last constraints, since they have been generated
+        # during the construction of the subproblem
+        if Z is None:
+            constraints = [cons for cons in self._constraints[:-nobj]]
+        else:
+            constraints = [cons for cons in self._constraints[: -Z.shape[0]]]
+        if Z is None:
+            # Use the Pareto dominance cone
+            for obj, objective in enumerate(self._objectives):
+                constraints.append(objective.expr <= vref[obj] + z * direction[obj])
+        else:
+            for zrow in Z:
+                constraints.append(
+                    sum(
+                        zrow[obj] * (objective.expr - vref[obj] - z * direction[obj])
+                        for obj, objective in enumerate(self._objectives)
+                    )
+                    <= 0
+                )
+
+        return cp.Problem(cp.Minimize(z), constraints)
+
+    def allow_backup_subproblem_optimization(self) -> bool:
+        return True
+
     @property
     def parameters(self) -> np.ndarray:
         """Accessor method for parameters values.
@@ -110,14 +147,17 @@ class PascolettiSerafiniSubproblem(Subproblem):
         dual_obj_constraints_vals = (
             np.zeros(nobj) if Z is None else np.zeros(Z.shape[0])
         )
+        constraints = (
+            self._constraints
+            if self._backup_pb is None
+            else self._backup_pb.constraints
+        )
         if Z is None:
             for obj in range(nobj):
-                dual_obj_constraints_vals[obj] = self._constraints[
-                    -nobj + obj
-                ].dual_value
+                dual_obj_constraints_vals[obj] = constraints[-nobj + obj].dual_value
         else:
             for ind in range(Z.shape[0]):
-                dual_obj_constraints_vals[ind] = self._constraints[
+                dual_obj_constraints_vals[ind] = constraints[
                     -Z.shape[0] + ind
                 ].dual_value
 
@@ -131,16 +171,21 @@ class PascolettiSerafiniSubproblem(Subproblem):
         the values are likely to be wrong.
         """
         Z = None if self._order_cone is None else self._order_cone.inequalities
+        constraints = (
+            self._constraints
+            if self._backup_pb is None
+            else self._backup_pb.constraints
+        )
         if Z is None:
             nobj = len(self._objectives)
-            noriginal_cons = len(self._constraints) - nobj
+            noriginal_cons = len(constraints) - nobj
         else:
-            noriginal_cons = len(self._constraints) - Z.shape[0]
+            noriginal_cons = len(constraints) - Z.shape[0]
         if noriginal_cons == 0:
             return None
 
         dual_constraint_values = []
-        for constraint in self._constraints[:noriginal_cons]:
+        for constraint in constraints[:noriginal_cons]:
             if isinstance(constraint.dual_value, float):
                 dual_constraint_values += [constraint.dual_value]
             else:

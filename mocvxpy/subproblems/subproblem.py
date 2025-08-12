@@ -49,6 +49,7 @@ class Subproblem(metaclass=abc.ABCMeta):
         self._vars = extract_variables_from_problem(self._objectives, self._constraints)
 
         self._pb = self.create_subproblem()
+        self._backup_pb = None
 
     @abc.abstractmethod
     def create_subproblem(self) -> cp.Problem:
@@ -59,6 +60,36 @@ class Subproblem(metaclass=abc.ABCMeta):
         Returns
         -------
         the created subproblem
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def create_backup_subproblem(self) -> cp.Problem:
+        """Create (backup) subproblem.
+
+        Must be implemented by all subclasses of Subproblem.
+
+        NB: A backup subproblem is not implemented as a DPP problem.
+        It is always recomputed from scratch. The backup subproblem is
+        used instead of the original problem when the corresponding
+        DPP problem cannot be solved due to a DCP error. This method
+        is always called AFTER create_subproblem().
+
+        Returns
+        -------
+        the created subproblem
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def allow_backup_subproblem_optimization(self) -> bool:
+        """Indicates if one can use the backup subproblem
+        in case of DCP error.
+
+        Returns
+        -------
+        True if the solve() method can use the backup subproblem
+        if a DCP error occurs, false otherwise.
         """
         raise NotImplementedError()
 
@@ -133,6 +164,8 @@ class Subproblem(metaclass=abc.ABCMeta):
         before calling this method and to check the resolution has worked. Otherwise,
         the value is likely to be wrong.
         """
+        if self._backup_pb is not None:
+            return self._backup_pb.value
         return self._pb.value
 
     def solve(
@@ -157,12 +190,28 @@ class Subproblem(metaclass=abc.ABCMeta):
         str
            The status of the resolution
         """
+        # Always try to compute the original subproblem
+        self._backup_pb = None
         try:
             self._pb.solve(solver=solver, verbose=verbose, **kwargs)
+        except cp.DCPError:
+            if not self.allow_backup_subproblem_optimization():
+                return "unsolved"
+
+            # Compute the backup problem and solve it
+            self._backup_pb = self.create_backup_subproblem()
+            try:
+                self._backup_pb.solve(solver=solver, verbose=verbose, **kwargs)
+            except:
+                # Nothing can be done anymore
+                return "unsolved"
         except:
             return "unsolved"
 
-        if self._pb.status not in ["infeasible", "unbounded"]:
+        pb_status = (
+            self._pb.status if self._backup_pb is None else self._backup_pb.status
+        )
+        if pb_status not in ["infeasible", "unbounded"]:
             return "solved"
 
         return "unsolved"

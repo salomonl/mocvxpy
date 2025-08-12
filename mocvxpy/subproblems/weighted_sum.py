@@ -43,6 +43,12 @@ class WeightedSumSubproblem(Subproblem):
 
         return cp.Problem(weighted_sum_objective, self._constraints)
 
+    def create_backup_subproblem(self) -> cp.Problem:
+        return self.create_subproblem()
+
+    def allow_backup_subproblem_optimization(self) -> bool:
+        return False
+
     @property
     def parameters(self) -> np.ndarray:
         """Accessor method for parameters values.
