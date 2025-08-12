@@ -156,7 +156,7 @@ class Solution:
         -------
         np.ndarray
            A matrix of objective values of dimensions nobj x nobj:
-           row i corresponds to objective i.
+           the row i corresponds to objective i.
         """
         extreme_pts_indexes = np.argmin(self.objective_values, axis=0)
         return self.objective_values[extreme_pts_indexes, :]
@@ -264,7 +264,7 @@ def update_local_lower_bounds(
     https://doi.org/10.1016/j.ejor.2023.02.032
 
     The algorithm is not implemented in a Python class to be the most efficient possible.
-    It is the responsability of the user to assure the arguments satisfy the correct assumptions.
+    It is the responsibility of the user to assure the arguments satisfy the correct assumptions.
 
     Arguments
     ---------
@@ -272,6 +272,8 @@ def update_local_lower_bounds(
         The set of local lower bounds. Has dimensions |L| x nobj.
     y: np.ndarray
         An update point of dimension nobj.
+    nobj: int
+        The number of objectives of the problem.
 
     Returns
     -------
@@ -376,7 +378,7 @@ def update_local_upper_bounds(
     https://doi.org/10.1016/j.ejor.2023.02.032
 
     The algorithm is not implemented in a Python class to be the most efficient possible.
-    It is the responsability of the user to assure the arguments satisfy the correct assumptions.
+    It is the responsibility of the user to assure the arguments satisfy the correct assumptions.
 
     Arguments
     ---------
@@ -384,6 +386,8 @@ def update_local_upper_bounds(
         The set of local upper bounds. Has dimensions (|U|, nobj).
     y: np.ndarray
         An update point of dimension nobj.
+    nobj: int
+        The number of objectives of the problem.
 
     Returns
     -------
@@ -483,8 +487,6 @@ def compare_objective_vectors(y1: np.ndarray, y2: np.ndarray) -> int:
         The first objective vector.
     y2: np.ndarray
         The second objective vector.
-    nobj: int
-        The number of objectives.
 
     Returns
     -------

@@ -92,7 +92,7 @@ class WeightedSumSubproblem(Subproblem):
         """Returns the dual values associated to the ``objective constraints''
            of the subproblem.
 
-        Warning! It is the responsability of the user to call the solve() method
+        Warning! It is the responsibility of the user to call the solve() method
         before calling this method and to check the resolution has worked. Otherwise,
         the values are likely to be wrong.
         """
@@ -102,7 +102,7 @@ class WeightedSumSubproblem(Subproblem):
     def dual_constraint_values(self) -> Optional[np.ndarray]:
         """Returns the dual values associated to the constraints of the subproblem.
 
-        Warning! It is the responsability of the user to call the solve() method
+        Warning! It is the responsibility of the user to call the solve() method
         before calling this method and to check the resolution has worked. Otherwise,
         the values are likely to be wrong.
         """
@@ -137,8 +137,8 @@ def solve_weighted_sum_subproblem(
     and its dual.
 
     NB: Solve the corresponding subproblem. This function is specifically used
-    for parallelism. It is the responsability of the user to be sure that each
-    subproblem instance is independant of each other.
+    for parallelism. It is the responsibility of the user to be sure that each
+    subproblem instance is independent of each other.
 
     Arguments
     ---------

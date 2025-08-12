@@ -121,7 +121,7 @@ class Subproblem(metaclass=abc.ABCMeta):
         """Returns the optimal decision values that correspond to the
         original multiobjective problem.
 
-        Warning! It is the responsability of the user to call the solve() method
+        Warning! It is the responsibility of the user to call the solve() method
         before calling this method and to check the optimization has worked.
         Otherwise, the values are likely to be wrong.
         """
@@ -134,7 +134,7 @@ class Subproblem(metaclass=abc.ABCMeta):
         """Returns the optimal objective values that correspond to the
            original multiobjective problem.
 
-        Warning! It is the responsability of the user to call the solve() method
+        Warning! It is the responsibility of the user to call the solve() method
         before calling this method and to check the resolution has worked. Otherwise,
         the values are likely to be wrong.
         """
@@ -151,7 +151,7 @@ class Subproblem(metaclass=abc.ABCMeta):
     def dual_constraint_values(self) -> Optional[np.ndarray]:
         """Returns the dual values associated to the constraints of the subproblem.
 
-        Warning! It is the responsability of the user to call the solve() method
+        Warning! It is the responsibility of the user to call the solve() method
         before calling this method and to check the resolution has worked. Otherwise,
         the values are likely to be wrong.
         """
@@ -160,7 +160,7 @@ class Subproblem(metaclass=abc.ABCMeta):
     def value(self) -> float:
         """Returns the optimal objective value of the subproblem.
 
-        Warning! It is the responsability of the user to call the solve() method
+        Warning! It is the responsibility of the user to call the solve() method
         before calling this method and to check the resolution has worked. Otherwise,
         the value is likely to be wrong.
         """

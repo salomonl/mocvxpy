@@ -80,7 +80,7 @@ class ADENASolver:
 
         scalarization_solver_options: optional[dict]
            The options of the solver used to solve the scalarization subproblem.
-           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           Must be given under a dict whose keys are a pair of (str, any). Each key must follow
            the conventional way of giving options to a solver in cvxpy.
 
         Returns
@@ -274,7 +274,7 @@ class ADENASolver:
 
         scalarization_solver_options: optional[dict]
            The options of the solver used to solve the extreme solution subproblems.
-           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           Must be given under a dict whose keys are a pair of (str, any). Each key must follow
            the conventional way of giving options to a solver in cvxpy.
 
         Returns

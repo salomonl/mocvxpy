@@ -68,7 +68,7 @@ class MOVSSolver:
            Display the output of the algorithm.
 
         stopping_tol: float
-           The stopping tolerance. When the haussdorf distance between the outer
+           The stopping tolerance. When the Hausdorff distance between the outer
            approximation and the inner approximation is below stopping_tol * scale_factor,
            the algorithm stops. Is always above or equal to MOVS_MIN_STOPPING_TOL = 1e-6.
 
@@ -77,13 +77,13 @@ class MOVSSolver:
 
         scalarization_solver_options: optional[dict]
            The options of the solver used to solve the scalarization subproblem.
-           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           Must be given under a dict whose keys are a pair of (str, any). Each key must follow
            the conventional way of giving options to a solver in cvxpy.
 
         vertex_selection_solver_options: optional[dict]
            The options of the solver used to solve the vertex selection subproblem. Must be able
            to solve a quadratic problem.
-           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           Must be given under a dict whose keys are a pair of (str, any). Each key must follow
            the conventional way of giving options to a solver in cvxpy.
 
         Returns
@@ -163,12 +163,12 @@ class MOVSSolver:
         if verbose:
             print(f"Stopping tolerance: {scaled_stopping_tol:.5E}")
 
-        haussdorf_dist = np.inf
+        hausdorff_dist = np.inf
         if verbose:
             print(
                 f"{"iter":>7} {"nb_solutions":>13} ",
                 f"{"|vert(Ok)|":>10} {"|halfspaces(Ok)|":>16} ",
-                f"{"|QP(s, Ik)|":>11} {"Haussdorf_dist":>14} ",
+                f"{"|QP(s, Ik)|":>11} {"Hausdorff_dist":>14} ",
                 f"{"time_QP_solve (s)":>17} {"time_PS_pb_solve (s)":>20}",
             )
             print()
@@ -176,7 +176,7 @@ class MOVSSolver:
                 f"{0:5d} {len(sol.objective_values):10d} ",
                 f"{len(outer_vertices):13d} {len(outer_approximation.halfspaces):12d} ",
                 f"{"-":>13}",
-                f"{haussdorf_dist:14e}",
+                f"{hausdorff_dist:14e}",
             )
 
         # Initialize subproblem
@@ -211,17 +211,17 @@ class MOVSSolver:
 
             s = vertex_selection_solutions[opt_pair_ind][:nobj]
             p = vertex_selection_solutions[opt_pair_ind][nobj:]
-            haussdorf_dist = np.linalg.norm(p - s)
+            hausdorff_dist = np.linalg.norm(p - s)
 
             if verbose:
                 print(
                     f"{iter+1:5d} {len(sol.objective_values):10d} ",
                     f"{len(outer_vertices):13d} {len(outer_approximation.halfspaces):12d} ",
-                    f"{nb_qp_solved:14d} {haussdorf_dist:17e}",
+                    f"{nb_qp_solved:14d} {hausdorff_dist:17e}",
                     f"{elapsed_vertex_selection_pb:16e} {elapsed_ps_pb:16e}",
                 )
 
-            if haussdorf_dist <= scaled_stopping_tol:
+            if hausdorff_dist <= scaled_stopping_tol:
                 status = "solved"
                 break
 
@@ -303,7 +303,7 @@ class MOVSSolver:
             print("Resolution time (s):", end_optimization - start_optimization)
             print(
                 "Hausdorff distance between outer and inner approximation of the solution set:",
-                f"{haussdorf_dist:.5E}",
+                f"{hausdorff_dist:.5E}",
             )
             print("Number of solutions found:", len(sol.xvalues))
             print(
@@ -331,7 +331,7 @@ class MOVSSolver:
 
         scalarization_solver_options: optional[dict]
            The options of the solver used to solve the extreme solution subproblems.
-           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           Must be given under a dict whose keys are a pair of (str, any). Each key must follow
            the conventional way of giving options to a solver in cvxpy.
 
         Returns

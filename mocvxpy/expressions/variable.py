@@ -7,7 +7,7 @@ from typing import Any, Iterable, Optional
 class Variable(cp.Variable):
     """The optimization variables in a problem.
 
-    Overloads the cvxpy.Variable class
+    Overloads the cvxpy.Variable class.
     """
 
     def __init__(
@@ -33,7 +33,7 @@ class Variable(cp.Variable):
         """Setter method for variable values.
 
         Arguments
-        -------
+        ---------
         vals: np.ndarray
             The optimal values corresponding to the variable.
         """

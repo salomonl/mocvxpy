@@ -82,7 +82,7 @@ class MOVSParSolver:
            Display the output of the algorithm.
 
         stopping_tol: float
-           The stopping tolerance. When the haussdorf distance between the outer
+           The stopping tolerance. When the Hausdorff distance between the outer
            approximation and the inner approximation is below stopping_tol * scale_factor,
            the algorithm stops. Is always above or equal to MOVS_MIN_STOPPING_TOL = 1e-6.
 
@@ -91,13 +91,13 @@ class MOVSParSolver:
 
         scalarization_solver_options: optional[dict]
            The options of the solver used to solve the scalarization subproblem.
-           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           Must be given under a dict whose keys are a pair of (str, any). Each key must follow
            the conventional way of giving options to a solver in cvxpy.
 
         vertex_selection_solver_options: optional[dict]
            The options of the solver used to solve the vertex selection subproblem. Must be able
            to solve a quadratic problem.
-           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           Must be given under a dict whose keys are a pair of (str, any). Each key must follow
            the conventional way of giving options to a solver in cvxpy.
 
         Returns
@@ -181,12 +181,12 @@ class MOVSParSolver:
         if verbose:
             print(f"Stopping tolerance: {scaled_stopping_tol:.5E}")
 
-        haussdorf_dist = np.inf
+        hausdorff_dist = np.inf
         if verbose:
             print(
                 f"{"iter":>7} {"nb_solutions":>13} ",
                 f"{"|vert(Ok)|":>10} {"|halfspaces(Ok)|":>16} ",
-                f"{"|QP(s, Ik)|":>11} {"Haussdorf_dist":>14} ",
+                f"{"|QP(s, Ik)|":>11} {"Hausdorff_dist":>14} ",
                 f"{"nb_ps_solved":>12} {"nb_ps_failed":>12} ",
                 f"{"time_QP_solve (s)":>17} {"time_PS_pb_solve (s)":>20}",
             )
@@ -195,7 +195,7 @@ class MOVSParSolver:
                 f"{0:5d} {len(sol.objective_values):10d} ",
                 f"{len(outer_vertices):13d} {len(outer_approximation.halfspaces):12d} ",
                 f"{"-":>13}",
-                f"{haussdorf_dist:14e}",
+                f"{hausdorff_dist:14e}",
             )
 
         # Set options
@@ -234,10 +234,10 @@ class MOVSParSolver:
                 end_vertex_selection_pb - start_vertex_selection_pb
             )
 
-            haussdorf_dist = -np.inf
+            hausdorff_dist = -np.inf
             for vertex_pair in vertex_selection_solutions:
-                haussdorf_dist = max(
-                    haussdorf_dist,
+                hausdorff_dist = max(
+                    hausdorff_dist,
                     np.linalg.norm(vertex_pair[:nobj] - vertex_pair[nobj:]),
                 )
 
@@ -245,12 +245,12 @@ class MOVSParSolver:
                 print(
                     f"{iter+1:5d} {len(sol.objective_values):10d} ",
                     f"{len(outer_vertices):13d} {len(outer_approximation.halfspaces):12d} ",
-                    f"{nb_qp_solved:14d} {haussdorf_dist:17e}",
+                    f"{nb_qp_solved:14d} {hausdorff_dist:17e}",
                     f"{nb_subproblems_solved_per_iter:11d} {nb_subproblems_failed_per_iter:12d} ",
                     f"{elapsed_vertex_selection_pb:16e} {elapsed_ps_pb:16e}",
                 )
 
-            if haussdorf_dist <= scaled_stopping_tol:
+            if hausdorff_dist <= scaled_stopping_tol:
                 status = "solved"
                 break
 
@@ -353,7 +353,7 @@ class MOVSParSolver:
                     print(
                         f"{iter+2:5d} {len(sol.objective_values):10d} ",
                         f"{len(outer_vertices):13d} {len(outer_approximation.halfspaces):12d} ",
-                        f"{nb_qp_solved:14d} {haussdorf_dist:17e}",
+                        f"{nb_qp_solved:14d} {hausdorff_dist:17e}",
                         f"{nb_subproblems_solved_per_iter:11d} {nb_subproblems_failed_per_iter:12d} ",
                         f"{elapsed_vertex_selection_pb:16e} {elapsed_ps_pb:16e}",
                     )
@@ -367,7 +367,7 @@ class MOVSParSolver:
             print("Resolution time (s):", end_optimization - start_optimization)
             print(
                 "Hausdorff distance between outer and inner approximation of the solution set:",
-                f"{haussdorf_dist:.5E}",
+                f"{hausdorff_dist:.5E}",
             )
             print("Number of solutions found:", len(sol.xvalues))
             print(
@@ -395,7 +395,7 @@ class MOVSParSolver:
 
         scalarization_solver_options: optional[dict]
             The options of the solver used to solve the extreme solution subproblems.
-            Must be given under a dict whose keys are pair of (str, any). Each key must follow
+            Must be given under a dict whose keys are a pair of (str, any). Each key must follow
             the conventional way of giving options to a solver in cvxpy.
 
         Returns
@@ -481,17 +481,17 @@ class MOVSParSolver:
         Arguments
         ---------
         outer_vertices: np.ndarray
-            The list of outer vertices of the outer approximation
+            The list of outer vertices of the outer approximation.
 
         inner_vertices: np.ndarray
-            The current list of objective vectors found
+            The current list of objective vectors found.
 
         previous_vertex_selection_solutions:
             The pairs of solutions found during the previous resolution
             of the vertex selection problem.
-            For each row, the first nobj columns contain the coordinates of
-            the outer vertex and the last nobj columns the coordinates of
-            the corresponding inner vertex.
+            For each row, the first m columns contain the coordinates of
+            the outer vertex and the last m columns the coordinates of
+            the corresponding inner vertex where m is the number of objectives.
 
         current_inner_vertex_indexes:
             The indexes of the inner vertices found at the previous iteration.

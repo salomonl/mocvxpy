@@ -30,7 +30,7 @@ class OneObjectiveSubproblem(Subproblem):
         self._obj_ind = -1
         # TODO: take into consideration min and max
         sum_objective = cp.Minimize(
-            sum(objective.expr for (obj, objective) in enumerate(self._objectives))
+            sum(objective.expr for objective in self._objectives)
         )
 
         return cp.Problem(sum_objective, self._constraints)
@@ -75,7 +75,7 @@ class OneObjectiveSubproblem(Subproblem):
         """Returns the dual values associated to the ``objective constraints''
            of the subproblem.
 
-        Warning! It is the responsability of the user to call the solve() method
+        Warning! It is the responsibility of the user to call the solve() method
         before calling this method and to check the resolution has worked. Otherwise,
         the values are likely to be wrong.
         """
@@ -85,7 +85,7 @@ class OneObjectiveSubproblem(Subproblem):
     def dual_constraint_values(self) -> Optional[np.ndarray]:
         """Returns the dual values associated to the constraints of the subproblem.
 
-        Warning! It is the responsability of the user to call the solve() method
+        Warning! It is the responsibility of the user to call the solve() method
         before calling this method and to check the resolution has worked. Otherwise,
         the values are likely to be wrong.
         """
@@ -118,8 +118,8 @@ def solve_one_objective_subproblem(
           x in Omega
 
     NB: Solve the corresponding subproblem. This function is specifically used
-    for parallelism. It is the responsability of the user to be sure that each
-    subproblem instance is independant of each other.
+    for parallelism. It is the responsibility of the user to be sure that each
+    subproblem instance is independent of each other.
 
     Arguments
     ---------

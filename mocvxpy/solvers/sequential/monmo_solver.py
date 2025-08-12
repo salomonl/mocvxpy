@@ -73,7 +73,7 @@ class MONMOSolver:
            Display the output of the algorithm.
 
         stopping_tol: float
-           The stopping tolerance. When the haussdorf distance between the outer
+           The stopping tolerance. When the Hausdorff distance between the outer
            approximation and the inner approximation is below stopping_tol * scale_factor,
            the algorithm stops. Is always above or equal to MONMO_MIN_STOPPING_TOL = 1e-6.
 
@@ -86,7 +86,7 @@ class MONMOSolver:
 
         scalarization_solver_options: optional[dict]
            The options of the solver used to solve the scalarization subproblem.
-           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           Must be given under a dict whose keys are a pair of (str, any). Each key must follow
            the conventional way of giving options to a solver in cvxpy.
 
         Returns
@@ -170,19 +170,19 @@ class MONMOSolver:
         if verbose:
             print(f"Stopping tolerance: {scaled_stopping_tol:.5E}")
 
-        haussdorf_dist = np.inf
+        hausdorff_dist = np.inf
         if verbose:
             print(
                 f"{"iter":>7} {"nb_solutions":>13} ",
                 f"{"|vert(Ok)|":>10} {"|halfspaces(Ok)|":>16} ",
-                f"{"nb_pbs_solved_per_iter":>22} {"|unknown_vertices|":>18} {"Haussdorf_dist":>14} ",
+                f"{"nb_pbs_solved_per_iter":>22} {"|unknown_vertices|":>18} {"Hausdorff_dist":>14} ",
                 f"{"time_NM_pb_solve (s)":>20} {"avg_time_NM_pb_solve (s)":>24}",
             )
             print()
             print(
                 f"{0:5d} {len(sol.objective_values):10d} ",
                 f"{len(outer_vertices):13d} {len(outer_approximation.halfspaces):12d} ",
-                f"{"-":>20} {"-":>19} {haussdorf_dist:21e} ",
+                f"{"-":>20} {"-":>19} {hausdorff_dist:21e} ",
                 f"{"-":>12} {"-":>20}",
             )
 
@@ -208,7 +208,6 @@ class MONMOSolver:
                     if np.linalg.norm(vertex - outer_vertex) <= MIN_DIST_OBJ_VECS:
                         remove_vertex = False
                         break
-                vertex = None
                 if remove_vertex:
                     del explored_outer_vertices_information[index]
 
@@ -232,7 +231,7 @@ class MONMOSolver:
                 if not explore_vertex:
                     unknown_outer_vertices.append(vertex)
 
-            haussdorf_dist = -np.inf
+            hausdorff_dist = -np.inf
             nb_subproblems_solved_per_iter = 0
             nb_subproblems_failed_per_iter = 0
             elapsed_subproblems_per_iter = 0.0
@@ -273,7 +272,7 @@ class MONMOSolver:
                 if opt_val <= scaled_stopping_tol:
                     # Update set of optimal outer vertices
                     optimal_outer_vertices.append(v)
-                    haussdorf_dist = max(haussdorf_dist, opt_val)
+                    hausdorff_dist = max(hausdorff_dist, opt_val)
                 else:
                     # Update information of explored vertices
                     explored_outer_vertices_information.append(
@@ -289,7 +288,7 @@ class MONMOSolver:
             for index, (_, _, _, opt_val) in enumerate(
                 explored_outer_vertices_information
             ):
-                haussdorf_dist = max(haussdorf_dist, opt_val)
+                hausdorff_dist = max(hausdorff_dist, opt_val)
                 if opt_val > scaled_stopping_tol and opt_val > best_opt_val:
                     best_opt_val = opt_val
                     opt_index = index
@@ -314,9 +313,6 @@ class MONMOSolver:
                 optimal_outer_vertices.append(v)
 
                 # Remove it from the set of explored vertices
-                opt_obj_values = None
-                w_opt = None
-                v = None
                 del explored_outer_vertices_information[opt_index]
 
             elapsed_total_subproblems += elapsed_subproblems_per_iter
@@ -325,7 +321,7 @@ class MONMOSolver:
                 print(
                     f"{iter+1:5d} {len(sol.xvalues):10d} ",
                     f"{len(outer_vertices):13d} {len(outer_approximation.halfspaces):12d} ",
-                    f"{nb_subproblems_solved_per_iter:20d} {len(unknown_outer_vertices):19d} {haussdorf_dist:21e}",
+                    f"{nb_subproblems_solved_per_iter:20d} {len(unknown_outer_vertices):19d} {hausdorff_dist:21e}",
                     f"{elapsed_subproblems_per_iter:19e} {elapsed_total_subproblems / total_nm_pbs_solved:19e}",
                 )
 
@@ -342,7 +338,7 @@ class MONMOSolver:
                 status = "max_pbs_solved_reached"
                 break
 
-            if haussdorf_dist <= scaled_stopping_tol:
+            if hausdorff_dist <= scaled_stopping_tol:
                 status = "solved"
                 break
 
@@ -382,7 +378,7 @@ class MONMOSolver:
 
         scalarization_solver_options: optional[dict]
            The options of the solver used to solve the extreme solution subproblems.
-           Must be given under a dict whose keys are pair of (str, any). Each key must follow
+           Must be given under a dict whose keys are a pair of (str, any). Each key must follow
            the conventional way of giving options to a solver in cvxpy.
 
         Returns

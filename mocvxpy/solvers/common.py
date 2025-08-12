@@ -48,7 +48,6 @@ def compute_extreme_objective_vectors(
     # NB: we do not filter solutions, even if they can be the same
     # since their dual objective values are nonetheless different
     single_obj_pb = OneObjectiveSubproblem(objectives, constraints)
-    status = "not_defined"
     for obj in range(nobj):
         single_obj_pb.parameters = obj
         if solver_options is None:
@@ -111,7 +110,7 @@ def compute_extreme_points_hyperplane(extreme_pts: np.ndarray) -> Optional[np.nd
     nobj = extreme_pts.shape[1]
     nextreme_pts = extreme_pts.shape[0]
     if nextreme_pts != nobj:
-        return
+        return None
 
     # We want to find the hyperplane passing by each extreme inner vertex z1, z2, ... zm
     # where m is the number of objectives of the problem. It must satisfy
@@ -125,4 +124,4 @@ def compute_extreme_points_hyperplane(extreme_pts: np.ndarray) -> Optional[np.nd
         hyp_eq: np.ndarray = np.linalg.solve(extreme_pts, np.ones(nobj))
         return hyp_eq
     except np.linalg.LinAlgError:
-        return
+        return None
