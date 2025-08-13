@@ -96,3 +96,27 @@ def compute_order_cone_from_its_rays(D: np.ndarray) -> OrderCone:
     # Set directly its rays
     C._rays = np.copy(D)
     return C
+
+
+def polar_cone(C: OrderCone) -> OrderCone:
+    """Compute the polar cone of an order cone, given by its H-representation.
+
+    Arguments
+    ---------
+    C: OrderCone
+       The ordering cone.
+
+    Returns
+    -------
+    OrderCone:
+       The polar cone.
+    """
+    # Compute the dual of C. Given C = {y: Z y >= 0},
+    # the dual cone of C is given by: C+ = cone(Z^T)
+    dual_C = compute_order_cone_from_its_rays(C.inequalities)
+
+    # The polar cone is defined by: C* = - C+
+    polar_C = OrderCone(-dual_C.inequalities)
+    polar_C._rays = -dual_C.rays
+
+    return polar_C
