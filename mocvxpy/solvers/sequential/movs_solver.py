@@ -209,6 +209,12 @@ class MOVSSolver:
                 end_vertex_selection_pb - start_vertex_selection_pb
             )
 
+            # If the optimization of all vertex selection subproblems fails,
+            # stop the procedure
+            if opt_pair_ind < 0:
+                status = "vertex_selection_failure"
+                break
+
             s = vertex_selection_solutions[opt_pair_ind][:nobj]
             p = vertex_selection_solutions[opt_pair_ind][nobj:]
             hausdorff_dist = np.linalg.norm(p - s)

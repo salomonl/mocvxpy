@@ -234,6 +234,12 @@ class MOVSParSolver:
                 end_vertex_selection_pb - start_vertex_selection_pb
             )
 
+            # If the optimization of all vertex selection subproblems fails,
+            # stop the procedure
+            if not vertex_selection_solutions:
+                status = "vertex_selection_failure"
+                break
+
             hausdorff_dist = -np.inf
             for vertex_pair in vertex_selection_solutions:
                 hausdorff_dist = max(
