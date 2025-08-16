@@ -455,7 +455,7 @@ def update_local_upper_bounds(
 
         # Filter out redundant points of Pi by Bi
         for ind1 in range(P[i].shape[0]):
-            # The point is already dominated
+            # The point is already dominating
             if not P_indexes[i][ind1]:
                 continue
 
