@@ -236,7 +236,7 @@ class MOVSParSolver:
 
             # If the optimization of all vertex selection subproblems fails,
             # stop the procedure
-            if not vertex_selection_solutions:
+            if len(vertex_selection_solutions) == 0:
                 status = "vertex_selection_failure"
                 break
 
