@@ -14,7 +14,8 @@ Variable = cp.Variable
 Variable._values = None
 Variable.values = property(
     lambda self: self._values,
-    doc="""Returns: the numeric values of the variable.
+    lambda self, vals: setattr(self, '_values', vals),
+    doc="""The numeric values of the variable.
 
          Each value corresponds to an optimal value of a multiobjective problem.
          """,

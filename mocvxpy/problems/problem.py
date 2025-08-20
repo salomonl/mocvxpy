@@ -386,7 +386,7 @@ class Problem:
             # Fit the dimensions of the array of optimal values to their corresponding variables
             dims = var_.shape
             opt_values = np.reshape(opt_values, (nsolutions,) + dims)
-            var_._values = opt_values
+            var_.values = opt_values
             var_index += nvalues
 
         # Populate optimal objective values
