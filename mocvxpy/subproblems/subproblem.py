@@ -127,7 +127,7 @@ class Subproblem(metaclass=abc.ABCMeta):
         """
         opt_values = []
         for var in self._vars:
-            opt_values += [val for val in var.value]
+            opt_values += [val for val in var.value.flatten()]
         return np.asarray(opt_values)
 
     def objective_values(self) -> np.ndarray:

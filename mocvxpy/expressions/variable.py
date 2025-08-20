@@ -1,40 +1,21 @@
 import cvxpy as cp
-import numpy as np
 
-from typing import Any, Iterable, Optional
+"""The optimization variables in a problem.
 
+It is an alias of the cvxpy.Variable class with new properties for the
+multiobjective case.
 
-class Variable(cp.Variable):
-    """The optimization variables in a problem.
+NB: For special variable types (e.g., complex hermitian matrix variables),
+cvxpy cannot handle inherited subclass of cp.Variable when
+making transformations to the expression tree of the problem.
+For these reasons, we resort to this ad-hoc monkey-patching.
+"""
+Variable = cp.Variable
+Variable._values = None
+Variable.values = property(
+    lambda self: self._values,
+    doc="""Returns: the numeric values of the variable.
 
-    Overloads the cvxpy.Variable class.
-    """
-
-    def __init__(
-        self,
-        shape: int | Iterable[int] = (),
-        name: str | None = None,
-        var_id: int | None = None,
-        **kwargs: Any,
-    ):
-        self._values = None
-        super(Variable, self).__init__(shape, name, var_id, **kwargs)
-
-    @property
-    def values(self) -> Optional[np.ndarray]:
-        """Returns: the numeric values of the variable.
-
-        Each value corresponds to an optimal value of a multiobjective problem.
-        """
-        return self._values
-
-    @values.setter
-    def values(self, vals: np.ndarray) -> None:
-        """Setter method for variable values.
-
-        Arguments
-        ---------
-        vals: np.ndarray
-            The optimal values corresponding to the variable.
-        """
-        self._values = vals
+         Each value corresponds to an optimal value of a multiobjective problem.
+         """,
+)

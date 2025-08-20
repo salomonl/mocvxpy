@@ -379,11 +379,14 @@ class Problem:
         var_index = 0
         for var_ in self.variables():
             nvalues = var_.size
-            opt_values = sol.xvalues[:, var_index : var_index + nvalues]
+            if var_.is_complex():
+                opt_values = sol.xvalues[:, var_index : var_index + nvalues]
+            else:
+                opt_values = np.real(sol.xvalues[:, var_index : var_index + nvalues])
             # Fit the dimensions of the array of optimal values to their corresponding variables
             dims = var_.shape
             opt_values = np.reshape(opt_values, (nsolutions,) + dims)
-            var_.values = opt_values
+            var_._values = opt_values
             var_index += nvalues
 
         # Populate optimal objective values
@@ -397,19 +400,26 @@ class Problem:
         # Populate optimal constraint values
         for constraint in self._constraints:
             constraint.values = []
-            for var_ in self.variables():
-                for opt_value in var_.values:
-                    var_.value = opt_value
-                    constraint.values.append(constraint.expr.value)
+            for sol_ind in range(nsolutions):
+                # Load current solution
+                for var_ in self.variables():
+                    var_.value = var_.values[sol_ind]
+                # Store corresponding constraint
+                constraint.values.append(constraint.expr.value)
             constraint.values = np.asarray(constraint.values)
 
         # Populate optimal dual constraint values
         cons_index = 0
         for constraint in self._constraints:
             ncons = constraint.size
-            constraint.dual_values = sol.dual_constraint_values[
-                :, cons_index : cons_index + ncons
-            ]
+            if constraint.is_complex():
+                constraint.dual_values = sol.dual_constraint_values[
+                    :, cons_index : cons_index + ncons
+                ]
+            else:
+                constraint.dual_values = np.real(sol.dual_constraint_values[
+                    :, cons_index: cons_index + ncons
+                ])
             cons_index += ncons
 
         self._objective_values = sol.objective_values

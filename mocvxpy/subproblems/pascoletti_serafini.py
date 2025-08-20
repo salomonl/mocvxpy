@@ -186,7 +186,9 @@ class PascolettiSerafiniSubproblem(Subproblem):
 
         dual_constraint_values = []
         for constraint in constraints[:noriginal_cons]:
-            if isinstance(constraint.dual_value, float):
+            if isinstance(constraint.dual_value, float) or isinstance(
+                constraint.dual_value, complex
+            ):
                 dual_constraint_values += [constraint.dual_value]
             else:
                 if constraint.dual_value.ndim == 0:
@@ -194,7 +196,7 @@ class PascolettiSerafiniSubproblem(Subproblem):
                     # a 0-dimensional array. We need to deal with this case
                     dual_constraint_values += [constraint.dual_value.tolist()]
                 else:
-                    dual_constraint_values += constraint.dual_value.tolist()
+                    dual_constraint_values += constraint.dual_value.flatten().tolist()
         return np.asarray(dual_constraint_values)
 
 

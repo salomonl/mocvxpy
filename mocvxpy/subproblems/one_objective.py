@@ -93,7 +93,9 @@ class OneObjectiveSubproblem(Subproblem):
         if not self._constraints:
             return None
         for constraint in self._constraints:
-            if isinstance(constraint.dual_value, float):
+            if isinstance(constraint.dual_value, float) or isinstance(
+                constraint.dual_value, complex
+            ):
                 dual_constraint_values += [constraint.dual_value]
             else:
                 if constraint.dual_value.ndim == 0:
@@ -101,7 +103,7 @@ class OneObjectiveSubproblem(Subproblem):
                     # a 0-dimensional array. We need to deal with this case
                     dual_constraint_values += [constraint.dual_value.tolist()]
                 else:
-                    dual_constraint_values += constraint.dual_value.tolist()
+                    dual_constraint_values += constraint.dual_value.flatten().tolist()
         return np.asarray(dual_constraint_values)
 
 
