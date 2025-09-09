@@ -167,12 +167,12 @@ class ADENASolver:
                     ),
                     (
                         f"{"-":>20}"
-                        if total_pb_solved == 0
+                        if total_pb_solved == 0 or nb_subproblems_solved_per_iter == 0
                         else f"{elapsed_subproblems_per_iter/nb_subproblems_solved_per_iter:21e}"
                     ),
                     (
                         f"{"-":>20}"
-                        if total_pb_solved == 0
+                        if total_pb_solved == 0 or nb_subproblems_solved_per_iter == 0
                         else f"{elapsed_update_bounds:20e}"
                     ),
                 )
@@ -182,6 +182,9 @@ class ADENASolver:
                 break
 
             if status == "max_pbs_solved_reached":
+                break
+
+            if status == "ps_subproblem_failure":
                 break
 
             nb_subproblems_solved_per_iter = 0
@@ -212,10 +215,11 @@ class ADENASolver:
                     status_sup_pb = sup_pb.solve(**scalarization_solver_options)
                 end_sup_pb_solved = time.perf_counter()
 
+                elapsed_subproblems_per_iter += end_sup_pb_solved - start_sup_pb_solved
+
                 if status_sup_pb != "solved":
                     continue
 
-                elapsed_subproblems_per_iter += end_sup_pb_solved - start_sup_pb_solved
                 nb_subproblems_solved_per_iter += 1
                 total_pb_solved += 1
 
@@ -241,6 +245,12 @@ class ADENASolver:
                 if total_pb_solved == max_pb_solved:
                     status = "max_pbs_solved_reached"
                     break
+
+            if (
+                status != "max_pbs_solved_reached"
+                and nb_subproblems_solved_per_iter == 0
+            ):
+                status = "ps_subproblem_failure"
 
         end_optimization = time.perf_counter()
         if verbose:
