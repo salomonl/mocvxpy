@@ -2,7 +2,7 @@ import cvxpy as cp
 import numpy as np
 import time
 
-from mocvxpy.problems.utilities import number_of_variables
+from mocvxpy.problems.utilities import number_of_constraints, number_of_variables
 from mocvxpy.solvers.common import compute_extreme_objective_vectors
 from mocvxpy.constants import (
     ADENA_BOX_EXTENSION_TOL,
@@ -96,6 +96,8 @@ class ADENASolver:
             print("ADENA algorithm:")
             print("Number of objectives: ", nobj)
             print("Number of variables: ", nvars)
+            print("Number of constraint expressions:", len(self._constraints))
+            print("Number of constraints:", number_of_constraints(self._constraints))
 
         initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":

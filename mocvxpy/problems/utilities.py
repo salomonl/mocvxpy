@@ -76,3 +76,25 @@ def number_of_variables(
     """
     vars_ = extract_variables_from_problem(objectives, constraints)
     return sum(var.size for var in vars_)
+
+
+def number_of_constraints(constraints: List[cp.Constraint]) -> int:
+    """Returns the number of constraints of a set of constraints.
+
+    NB: The number of constraints returned by this function takes
+    into account the dimensions of the problem.
+
+    Arguments
+    ---------
+    constraints : list
+        The constraints on the problem variables (can be empty).
+
+    Returns
+    -------
+    int
+        The number of constraints of a set of constraints.
+    """
+    if len(constraints) == 0:
+        return 0
+
+    return sum(constraint.size for constraint in constraints)

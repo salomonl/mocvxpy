@@ -9,7 +9,7 @@ from mocvxpy.constants import (
     MONMO_MIN_STOPPING_TOL,
 )
 from mocvxpy.expressions.order_cone import OrderCone
-from mocvxpy.problems.utilities import number_of_variables
+from mocvxpy.problems.utilities import number_of_constraints, number_of_variables
 from mocvxpy.solvers.common import (
     compute_extreme_objective_vectors,
     compute_extreme_points_hyperplane,
@@ -103,6 +103,8 @@ class MONMOSolver:
             print("MONMO algorithm:")
             print("Number of objectives:", nobj)
             print("Number of variables:", nvars)
+            print("Number of constraint expressions:", len(self._constraints))
+            print("Number of constraints:", number_of_constraints(self._constraints))
             print(
                 "Dominance cone:",
                 (
