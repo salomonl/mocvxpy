@@ -10,11 +10,11 @@ from mocvxpy.constants import (
     ADENA_MAX_PB_SOLVED,
     ADENA_MIN_STOPPING_TOL,
 )
-from mocvxpy.solvers.solution import (
-    Solution,
+from mocvxpy.solvers.local_bound_set import (
     update_local_lower_bounds,
     update_local_upper_bounds,
 )
+from mocvxpy.solvers.solution import Solution
 from mocvxpy.subproblems.pascoletti_serafini import PascolettiSerafiniSubproblem
 from typing import Dict, List, Optional, Tuple, Union
 
