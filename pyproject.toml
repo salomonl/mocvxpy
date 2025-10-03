@@ -15,4 +15,5 @@ dependencies = [
     "numpy>=2.3.0",
     "ppprint>=0.1.0",
     "pycddlib>=3.0.2",
+    "pytest>=8.4.2",
 ]
