@@ -142,7 +142,11 @@ class NormMinSubproblem(Subproblem):
         )
         if Z is None:
             for obj in range(nobj):
-                dual_obj_constraints_vals[obj] = constraints[-nobj + obj].dual_value
+                dual_obj_constraint_value = constraints[-nobj + obj].dual_value
+                if isinstance(dual_obj_constraint_value, float):
+                    dual_obj_constraints_vals[obj] = dual_obj_constraint_value
+                else:
+                    dual_obj_constraints_vals[obj] = dual_obj_constraint_value[0]
         else:
             for ind in range(Z.shape[0]):
                 dual_obj_constraints_vals[ind] = constraints[
