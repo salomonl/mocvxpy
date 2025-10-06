@@ -253,7 +253,7 @@ def solve_pascoletti_serafini_subproblem(
     """
     ps_pb.parameters = np.concatenate((outer_vertex, direction))
     ps_pb_status = ps_pb.solve(solver=solver, verbose=verbose, **kwargs)
-    if ps_pb_status not in ["infeasible", "unbounded", "unsolved"]:
+    if ps_pb_status in ["optimal", "optimal_inaccurate"]:
         return (
             ps_pb_status,
             ps_pb.solution(),

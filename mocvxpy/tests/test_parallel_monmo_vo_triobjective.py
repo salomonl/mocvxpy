@@ -16,7 +16,7 @@ def test_solve_sphere_pb_respect_to_C1_with_MONMO():
     pb = mocp.Problem(objectives, constraints, C1)
 
     objective_values = pb.solve(client=CLIENT, solver="MONMO")
-    assert pb.status == "max_pbs_solved_reached"
+    assert pb.status == "solution_limit"
     assert objective_values.shape == (356, 3)
     assert x.values.shape == (356, 3)
     assert np.all(objective_values[:, 0] == objectives[0].values)
@@ -38,7 +38,7 @@ def test_solve_sphere_pb_respect_to_C2_with_MONMO():
     pb = mocp.Problem(objectives, constraints, C2)
 
     objective_values = pb.solve(client=CLIENT, solver="MONMO")
-    assert pb.status == "max_pbs_solved_reached"
+    assert pb.status == "solution_limit"
     assert objective_values.shape == (356, 3)
     assert x.values.shape == (356, 3)
     assert np.all(objective_values[:, 0] == objectives[0].values)

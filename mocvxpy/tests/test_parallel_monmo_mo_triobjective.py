@@ -18,7 +18,7 @@ def test_solve_qp_st_linear_constraints_with_MONMO():
     pb = mocp.Problem(objectives, constraints)
 
     objective_values = pb.solve(client=CLIENT, solver="MONMO")
-    assert pb.status == "max_pbs_solved_reached"
+    assert pb.status == "solution_limit"
     assert objective_values.shape == (353, 3)
     assert x.values.shape == (353, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)
@@ -39,7 +39,7 @@ def test_solve_ellipsoidal_pb_with_MONMO():
     pb = mocp.Problem(objectives, constraints)
 
     objective_values = pb.solve(client=CLIENT, solver="MONMO")
-    assert pb.status == "max_pbs_solved_reached"
+    assert pb.status == "solution_limit"
     assert objective_values.shape == (353, 3)
     assert x.values.shape == (353, 3)
     assert np.all(objective_values[:, 0] == objectives[0].values)
@@ -59,7 +59,7 @@ def test_solve_power_of_4_pb_st_qp_constraints_with_MONMO():
     pb = mocp.Problem(objectives, constraints)
 
     objective_values = pb.solve(client=CLIENT, solver="MONMO")
-    assert pb.status == "max_pbs_solved_reached"
+    assert pb.status == "solution_limit"
     assert objective_values.shape == (353, 3)
     assert x.values.shape == (353, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)
@@ -95,7 +95,7 @@ def test_solve_qcqp_with_MONMO():
     pb = mocp.Problem(objectives, constraints)
 
     objective_values = pb.solve(client=CLIENT, solver="MONMO")
-    assert pb.status == "max_pbs_solved_reached"
+    assert pb.status == "solution_limit"
     assert objective_values.shape == (353, 3)
     assert x.values.shape == (353, 3)
     assert np.all(objective_values[:, 0] == objectives[0].values)

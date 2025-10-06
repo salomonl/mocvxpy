@@ -168,7 +168,7 @@ def solve_weighted_sum_subproblem(
     weighted_sum_status = weighted_sum_pb.solve(
         solver=solver, verbose=verbose, **kwargs
     )
-    if weighted_sum_status not in ["infeasible", "unbounded", "unsolved"]:
+    if weighted_sum_status in ["optimal", "optimal_inaccurate"]:
         return (
             weighted_sum_status,
             weighted_sum_pb.solution(),

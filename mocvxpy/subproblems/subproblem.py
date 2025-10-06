@@ -196,7 +196,7 @@ class Subproblem(metaclass=abc.ABCMeta):
             self._pb.solve(solver=solver, verbose=verbose, **kwargs)
         except cp.DCPError:
             if not self.allow_backup_subproblem_optimization():
-                return "unsolved"
+                return "dcp_error"
 
             # Compute the backup problem and solve it
             self._backup_pb = self.create_backup_subproblem()
@@ -204,14 +204,11 @@ class Subproblem(metaclass=abc.ABCMeta):
                 self._backup_pb.solve(solver=solver, verbose=verbose, **kwargs)
             except:
                 # Nothing can be done anymore
-                return "unsolved"
+                return "dcp_error"
         except:
-            return "unsolved"
+            return "dcp_error"
 
         pb_status = (
             self._pb.status if self._backup_pb is None else self._backup_pb.status
         )
-        if pb_status not in ["infeasible", "unbounded", "unbounded_inaccurate"]:
-            return "solved"
-
-        return "unsolved"
+        return pb_status

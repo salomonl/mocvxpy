@@ -147,7 +147,7 @@ def solve_one_objective_subproblem(
     """
     single_obj_pb.parameters = obj
     single_obj_status = single_obj_pb.solve(solver=solver, verbose=verbose, **kwargs)
-    if single_obj_status not in ["infeasible", "unbounded", "unsolved"]:
+    if single_obj_status in ["optimal", "optimal_inaccurate"]:
         return (
             single_obj_status,
             single_obj_pb.solution(),

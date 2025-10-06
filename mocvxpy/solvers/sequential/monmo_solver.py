@@ -116,6 +116,21 @@ class MONMOSolver:
 
         initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
+            if initial_step_status == "dcp_error":
+                raise cp.DCPError("Problem does not follow DCP rules.")
+            if initial_step_status in [
+                "infeasible",
+                "infeasible_inaccurate",
+                "infeasible_or_unbounded",
+                "solver_error",
+            ]:
+                if verbose:
+                    print("MONMO initialization failure: the problem is infeasible")
+                return "infeasible", sol
+            if initial_step_status in ["unbounded", "unbounded_inaccurate"]:
+                if verbose:
+                    print("MONMO initialization failure: the problem is unbounded")
+                return "unbounded", sol
             if verbose:
                 print(
                     "MONMO initialization failure: the algorithm cannot obtain extreme solutions;",
@@ -196,7 +211,7 @@ class MONMOSolver:
             self._objectives, self._constraints, self._order_cone
         )
 
-        status = "max_iter_reached"
+        status = "iteration_limit"
         start_optimization = time.perf_counter()
         elapsed_total_subproblems = 0.0
         total_nm_pbs_solved = 0
@@ -249,7 +264,7 @@ class MONMOSolver:
 
                 # If there is a failure, we ignore it and try to compute
                 # the norm min subproblem for another vertex
-                if status_norm_min != "solved":
+                if status_norm_min not in ["optimal", "optimal_inaccurate"]:
                     optimal_outer_vertices.append(v)
                     nb_subproblems_failed_per_iter += 1
                     total_nm_pbs_failed += 1
@@ -333,15 +348,15 @@ class MONMOSolver:
             if unknown_outer_vertices and nb_subproblems_failed_per_iter == len(
                 unknown_outer_vertices
             ):
-                status = "norm_min_subproblem_failure"
+                status = "scalarization_pb_numeric"
                 break
 
             if total_nm_pbs_solved >= max_pb_solved:
-                status = "max_pbs_solved_reached"
+                status = "solution_limit"
                 break
 
             if hausdorff_dist <= scaled_stopping_tol:
-                status = "solved"
+                status = "optimal"
                 break
 
         end_optimization = time.perf_counter()
@@ -423,7 +438,7 @@ class MONMOSolver:
                 weighted_sum_status = weighted_sum_pb.solve(
                     **scalarization_solver_options
                 )
-            if weighted_sum_status == "solved":
+            if weighted_sum_status in ["optimal", "optimal_inaccurate"]:
                 sol.insert_solution(
                     weighted_sum_pb.solution(),
                     weighted_sum_pb.objective_values(),
@@ -432,12 +447,7 @@ class MONMOSolver:
                 )
                 continue
 
-            if weighted_sum_status == "infeasible":
-                status = "infeasible"
-                break
-
-            # The solver has not found an optimal solution.
-            # We continue to try to compute as many initial solutions as possible
-            status = "no_extreme_solutions"
+            status = weighted_sum_status
+            break
 
         return status, sol

@@ -12,7 +12,7 @@ def test_solve_circle_pb_with_MONMO():
     pb = mocp.Problem(objectives, constraints)
 
     objective_values = pb.solve(client=CLIENT, solver="MONMO", max_iter=100)
-    assert pb.status == "solved"
+    assert pb.status == "optimal"
     assert objective_values.shape == (65, 2)
     assert x.values.shape == (65, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)
@@ -30,7 +30,7 @@ def test_solve_norm1_min_st_qp_constraints_with_MONMO():
     pb = mocp.Problem(objectives, constraints)
 
     objective_values = pb.solve(client=CLIENT, solver="MONMO", max_iter=100)
-    assert pb.status == "solved"
+    assert pb.status == "optimal"
     assert objective_values.shape == (5, 2)
     assert x.values.shape == (5, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)
@@ -52,7 +52,7 @@ def test_solve_qp_with_linear_constraints_with_MONMO():
     pb = mocp.Problem(objectives, constraints)
 
     objective_values = pb.solve(client=CLIENT, solver="MONMO", max_iter=10)
-    assert pb.status == "solved"
+    assert pb.status == "optimal"
     assert objective_values.shape == (65, 2)
     assert x.values.shape == (65, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)

@@ -32,10 +32,9 @@ def compute_extreme_objective_vectors(
     Returns
     -------
     Tuple[str, np.ndarray, np.ndarray, np.ndarray, optional[np.ndarray]
-        The status of this step ("solved", "unbounded", "unfeasible"),
-        the set of solutions associated, their respective objective values,
-        their respective dual objective values and their respective dual constraint values,
-        if they exist.
+        The status of this step, the set of solutions associated,
+        their respective objective values, their respective dual objective
+        values and their respective dual constraint values, if they exist.
     """
     nobj = len(objectives)
     if nobj <= 1:
@@ -56,7 +55,7 @@ def compute_extreme_objective_vectors(
             single_obj_status = single_obj_pb.solve(**solver_options)
 
         # Collect solution
-        if single_obj_status not in ["infeasible", "unbounded"]:
+        if single_obj_status in ["optimal", "optimal_inaccurate"]:
             solutions.append(single_obj_pb.solution())
             objective_values.append(single_obj_pb.objective_values())
             dual_objective_values.append(

@@ -16,7 +16,7 @@ def test_solve_disc_pb_respect_to_C1_with_MOVS():
     pb = mocp.Problem(objectives, constraints, C1)
 
     objective_values = pb.solve(client=CLIENT)
-    assert pb.status == "maxiter_reached"
+    assert pb.status == "iteration_limit"
     assert objective_values.shape == (78, 2)
     assert x.values.shape == (78, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)
@@ -35,7 +35,7 @@ def test_solve_disc_pb_respect_to_C2_with_MOVS():
     pb = mocp.Problem(objectives, constraints, C2)
 
     objective_values = pb.solve(client=CLIENT)
-    assert pb.status == "solved"
+    assert pb.status == "optimal"
     assert objective_values.shape == (19, 2)
     assert x.values.shape == (19, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)

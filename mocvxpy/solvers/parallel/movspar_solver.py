@@ -131,6 +131,25 @@ class MOVSParSolver:
 
         initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
+            if initial_step_status == "dcp_error":
+                raise cp.DCPError("Problem does not follow DCP rules.")
+            if initial_step_status in [
+                "infeasible",
+                "infeasible_inaccurate",
+                "infeasible_or_unbounded",
+                "solver_error",
+            ]:
+                if verbose:
+                    print(
+                        "MOVS Parallel initialization failure: the problem is infeasible"
+                    )
+                return "infeasible", sol
+            if initial_step_status in ["unbounded", "unbounded_inaccurate"]:
+                if verbose:
+                    print(
+                        "MOVS Parallel initialization failure: the problem is unbounded"
+                    )
+                return "unbounded", sol
             if verbose:
                 print(
                     "MOVS Parallel initialization failure: the algorithm cannot obtain extreme solutions;",
@@ -214,7 +233,7 @@ class MOVSParSolver:
             self._client.persist(ps_pb_task) for ps_pb_task in ps_subproblems_poll
         ]
 
-        status = "maxiter_reached"
+        status = "iteration_limit"
         vertex_selection_solutions = np.array([]).reshape((0, 2 * nobj))
         visited_outer_vertices = np.array([]).reshape((0, nobj))
         current_inner_vertex_indexes = []
@@ -239,7 +258,7 @@ class MOVSParSolver:
             # If the optimization of all vertex selection subproblems fails,
             # stop the procedure
             if len(vertex_selection_solutions) == 0:
-                status = "vertex_selection_failure"
+                status = "scalarization_pb_numeric"
                 break
 
             hausdorff_dist = -np.inf
@@ -259,7 +278,7 @@ class MOVSParSolver:
                 )
 
             if hausdorff_dist <= scaled_stopping_tol:
-                status = "solved"
+                status = "optimal"
                 break
 
             # Select vertices that are above the stopping threshold and that have not been already visited
@@ -278,7 +297,7 @@ class MOVSParSolver:
                     vertex_selection_candidates.append(sp_pair)
 
             if not vertex_selection_candidates:
-                status = "vertex_selection_failure"
+                status = "scalarization_pb_numeric"
                 break
 
             # Solve problems in parallel per batch to prevent potential memory
@@ -322,7 +341,7 @@ class MOVSParSolver:
                 status_ps = optimization_logs[0]
 
                 # If there is a failure, we ignore it and move to the next one
-                if status_ps != "solved":
+                if status_ps not in ["optimal", "optimal_inaccurate"]:
                     nb_subproblems_failed_per_iter += 1
                     continue
 
@@ -356,7 +375,7 @@ class MOVSParSolver:
                     )
 
             if nb_subproblems_failed_per_iter == len(optimization_results):
-                status = "ps_subproblem_failure"
+                status = "scalarization_pb_numeric"
                 if verbose:
                     print(
                         f"{iter+2:5d} {len(sol.objective_values):10d} ",
@@ -468,7 +487,7 @@ class MOVSParSolver:
         for optimization_logs in optimization_results:
             single_obj_status = optimization_logs[0]
 
-            if single_obj_status == "solved":
+            if single_obj_status in ["optimal", "optimal_inaccurate"]:
                 sol.insert_solution(
                     optimization_logs[1],
                     optimization_logs[2],
@@ -477,13 +496,8 @@ class MOVSParSolver:
                 )
                 continue
 
-            if single_obj_status == "infeasible":
-                status = "infeasible"
-                break
-
-            # The solver has not found an optimal solution.
-            # We continue to try to compute as many initial solutions as possible
-            status = "no_extreme_solutions"
+            status = single_obj_status
+            break
 
         return status, sol
 

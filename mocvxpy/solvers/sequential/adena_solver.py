@@ -101,6 +101,21 @@ class ADENASolver:
 
         initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
+            if initial_step_status == "dcp_error":
+                raise cp.DCPError("Problem does not follow DCP rules.")
+            if initial_step_status in [
+                "infeasible",
+                "infeasible_inaccurate",
+                "infeasible_or_unbounded",
+                "solver_error",
+            ]:
+                if verbose:
+                    print("ADENA initialization failure: the problem is infeasible")
+                return "infeasible", sol
+            if initial_step_status in ["unbounded", "unbounded_inaccurate"]:
+                if verbose:
+                    print("ADENA initialization failure: the problem is unbounded")
+                return "unbounded", sol
             if verbose:
                 print(
                     "ADENA initialization failure: the algorithm cannot obtain extreme solutions;",
@@ -144,7 +159,7 @@ class ADENASolver:
         total_pb_solved = 0
         elapsed_subproblems_per_iter = 0.0
         elapsed_update_bounds = 0.0
-        status = "max_iter_reached"
+        status = "iteration_limit"
         start_optimization = time.perf_counter()
         for iter in range(max_iter):
             # Compute enclosure width
@@ -183,10 +198,10 @@ class ADENASolver:
                 status = "optimal"
                 break
 
-            if status == "max_pbs_solved_reached":
+            if status == "solution_limit":
                 break
 
-            if status == "ps_subproblem_failure":
+            if status == "scalarization_pb_numeric":
                 break
 
             nb_subproblems_solved_per_iter = 0
@@ -219,7 +234,7 @@ class ADENASolver:
 
                 elapsed_subproblems_per_iter += end_sup_pb_solved - start_sup_pb_solved
 
-                if status_sup_pb != "solved":
+                if status_sup_pb not in ["optimal", "optimal_inaccurate"]:
                     continue
 
                 nb_subproblems_solved_per_iter += 1
@@ -245,14 +260,11 @@ class ADENASolver:
                 elapsed_update_bounds += end_update_bounds - start_update_bounds
 
                 if total_pb_solved == max_pb_solved:
-                    status = "max_pbs_solved_reached"
+                    status = "solution_limit"
                     break
 
-            if (
-                status != "max_pbs_solved_reached"
-                and nb_subproblems_solved_per_iter == 0
-            ):
-                status = "ps_subproblem_failure"
+            if status != "solution_limit" and nb_subproblems_solved_per_iter == 0:
+                status = "scalarization_pb_numeric"
 
         end_optimization = time.perf_counter()
         if verbose:

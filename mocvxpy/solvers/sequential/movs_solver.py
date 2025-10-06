@@ -113,6 +113,21 @@ class MOVSSolver:
 
         initial_step_status, sol = self._initial_step(sol, scalarization_solver_options)
         if initial_step_status != "solved":
+            if initial_step_status == "dcp_error":
+                raise cp.DCPError("Problem does not follow DCP rules.")
+            if initial_step_status in [
+                "infeasible",
+                "infeasible_inaccurate",
+                "infeasible_or_unbounded",
+                "solver_error",
+            ]:
+                if verbose:
+                    print("MOVS initialization failure: the problem is infeasible")
+                return "infeasible", sol
+            if initial_step_status in ["unbounded", "unbounded_inaccurate"]:
+                if verbose:
+                    print("MOVS initialization failure: the problem is unbounded")
+                return "unbounded", sol
             if verbose:
                 print(
                     "MOVS initialization failure: the algorithm cannot obtain extreme solutions;",
@@ -189,7 +204,7 @@ class MOVSSolver:
         # Set options
         max_iter = min(max_iter, MOVS_MAX_ITER)
 
-        status = "maxiter_reached"
+        status = "iteration_limit"
         vertex_selection_solutions = np.array([]).reshape((0, 2 * nobj))
         visited_outer_vertices = np.array([]).reshape((0, nobj))
         current_inner_vertex_ind = -1
@@ -214,7 +229,7 @@ class MOVSSolver:
             # If the optimization of all vertex selection subproblems fails,
             # stop the procedure
             if opt_pair_ind < 0:
-                status = "vertex_selection_failure"
+                status = "vertex_selection_numeric"
                 break
 
             s = vertex_selection_solutions[opt_pair_ind][:nobj]
@@ -230,7 +245,7 @@ class MOVSSolver:
                 )
 
             if hausdorff_dist <= scaled_stopping_tol:
-                status = "solved"
+                status = "optimal"
                 break
 
             if nb_qp_solved == 0:
@@ -248,7 +263,7 @@ class MOVSSolver:
                         vertex_selection_candidates.append(sp_pair)
 
                 if not vertex_selection_candidates:
-                    status = "vertex_selection_failure"
+                    status = "vertex_selection_numeric"
                     break
 
                 sorted_vertex_solutions_indexes = np.argsort(
@@ -276,8 +291,8 @@ class MOVSSolver:
             end_ps_pb = time.perf_counter()
             elapsed_ps_pb = end_ps_pb - start_ps_pb
 
-            if status_ps != "solved":
-                status = "ps_subproblem_failure"
+            if status_ps not in ["optimal", "optimal_inaccurate"]:
+                status = "scalarization_pb_numeric"
                 break
 
             # Update solution
@@ -382,7 +397,7 @@ class MOVSSolver:
                 weighted_sum_status = weighted_sum_pb.solve(
                     **scalarization_solver_options
                 )
-            if weighted_sum_status == "solved":
+            if weighted_sum_status in ["optimal", "optimal_inaccurate"]:
                 sol.insert_solution(
                     weighted_sum_pb.solution(),
                     weighted_sum_pb.objective_values(),
@@ -391,13 +406,8 @@ class MOVSSolver:
                 )
                 continue
 
-            if weighted_sum_status == "infeasible":
-                status = "infeasible"
-                break
-
-            # The solver has not found an optimal solution.
-            # We continue to try to compute as many initial solutions as possible
-            status = "no_extreme_solutions"
+            status = weighted_sum_status
+            break
 
         return status, sol
 

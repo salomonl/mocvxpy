@@ -239,7 +239,7 @@ def solve_norm_min_subproblem(
     """
     norm_min_pb.parameters = outer_vertex
     norm_min_status = norm_min_pb.solve(solver=solver, verbose=verbose, **kwargs)
-    if norm_min_status not in ["infeasible", "unbounded", "unsolved"]:
+    if norm_min_status in ["optimal", "optimal_inaccurate"]:
         return (
             norm_min_status,
             norm_min_pb.solution(),
