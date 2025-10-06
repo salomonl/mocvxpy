@@ -211,7 +211,7 @@ class Subproblem(metaclass=abc.ABCMeta):
         pb_status = (
             self._pb.status if self._backup_pb is None else self._backup_pb.status
         )
-        if pb_status not in ["infeasible", "unbounded"]:
+        if pb_status not in ["infeasible", "unbounded", "unbounded_inaccurate"]:
             return "solved"
 
         return "unsolved"

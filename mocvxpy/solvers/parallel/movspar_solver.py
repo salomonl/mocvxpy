@@ -414,33 +414,51 @@ class MOVSParSolver:
         Solution:
             The set of all solutions found during the initial step.
         """
-        # Solve all problems in parallel
         nobj = len(self._objectives)
+        # Create separate subproblem instances; bypass cvxpy threading
+        # issues that may result in some subproblems being unsolved
+        # in sequential mode
+        if self._order_cone is None:
+            initial_subproblems_poll = [
+                dask.delayed(OneObjectiveSubproblem)(
+                    self._objectives, self._constraints
+                )
+                for _ in range(nobj)
+            ]
+        else:
+            initial_subproblems_poll = [
+                dask.delayed(WeightedSumSubproblem)(self._objectives, self._constraints)
+                for _ in self._order_cone.inequalities
+            ]
+
+        # Solve all problems in parallel
         if self._order_cone is None:
             tasks = [
                 dask.delayed(solve_one_objective_subproblem)(
                     obj,
-                    OneObjectiveSubproblem(self._objectives, self._constraints),
+                    init_pb,
                     **(
                         scalarization_solver_options
                         if scalarization_solver_options is not None
                         else {}
                     ),
                 )
-                for obj in range(nobj)
+                for (obj, init_pb) in enumerate(initial_subproblems_poll)
             ]
         else:
             tasks = [
                 dask.delayed(solve_weighted_sum_subproblem)(
                     weights,
-                    WeightedSumSubproblem(self._objectives, self._constraints),
+                    init_pb,
                     **(
                         scalarization_solver_options
                         if scalarization_solver_options is not None
                         else {}
                     ),
                 )
-                for weights in self._order_cone.inequalities
+                for (weights, init_pb) in zip(
+                    self._order_cone.inequalities, initial_subproblems_poll
+                )
             ]
         run_tasks = self._client.compute(tasks)
         optimization_results = self._client.gather(run_tasks)
