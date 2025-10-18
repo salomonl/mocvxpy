@@ -17,6 +17,7 @@ limitations under the License.
 import cvxpy as cp
 import mocvxpy as mocp
 import numpy as np
+import sys
 
 from matplotlib import pyplot as plt
 
@@ -37,6 +38,12 @@ from matplotlib import pyplot as plt
 # https://github.com/LORER-MTL/OPF_Tools/
 
 if __name__ == "__main__":
+    try:
+        import mosek
+    except ImportError:
+        print("Please install Mosek to run this example.")
+        sys.exit(1)
+
     # case 9 from matpower
     # system baseMVA
     base_mva = 100

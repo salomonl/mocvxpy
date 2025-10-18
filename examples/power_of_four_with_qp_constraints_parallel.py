@@ -21,7 +21,7 @@ import numpy as np
 from dask.distributed import Client
 from matplotlib import pyplot as plt
 
-# Taken from
+# Example 5.9 taken from
 #
 # Ehrgott, M., Shao, L., & Schöbel, A. (2011).
 # An approximation algorithm for convex multi-objective programming problems.
@@ -36,17 +36,18 @@ from matplotlib import pyplot as plt
 #      0 <= x1 <= 3
 #      0 <= x2 <= 3
 if __name__ == "__main__":
+    # Create problem
     x = mocp.Variable(2)
-
     objectives = [
         cp.Minimize(50 * x[0] ** 4 + 10 * x[1] ** 4),
         cp.Minimize(30 * (x[0] - 5) ** 4 + 100 * (x[1] - 3) ** 4),
         cp.Minimize(70 * (x[0] - 2) ** 4 + 20 * (x[1] - 4) ** 4),
     ]
     constraints = [x >= 0, x <= 3, cp.sum_squares(x - 2 * np.ones(2)) <= 1]
-
     pb = mocp.Problem(objectives, constraints)
 
+    # Create a Client instance: must be initialized into a function
+    # Solve problem with MONMO algorithm
     client = Client()
     objective_values = pb.solve(
         client=client,
@@ -54,10 +55,14 @@ if __name__ == "__main__":
     )
     print("status: ", pb.status)
 
+    # Plot solutions in the objective space
     ax = plt.figure().add_subplot(projection="3d")
     ax.scatter(
         [vertex[0] for vertex in objective_values],
         [vertex[1] for vertex in objective_values],
         [vertex[2] for vertex in objective_values],
     )
+    ax.set_xlabel("$f_1$")
+    ax.set_ylabel("$f_2$")
+    ax.set_zlabel("$f_3$")
     plt.show()

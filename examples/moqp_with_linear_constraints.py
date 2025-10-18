@@ -17,8 +17,16 @@ limitations under the License.
 import cvxpy as cp
 import mocvxpy as mocp
 import numpy as np
+
 from matplotlib import pyplot as plt
 
+# Example 5.8 taken from
+#
+# Ehrgott, M., Shao, L., & Schöbel, A. (2011).
+# An approximation algorithm for convex multi-objective programming problems.
+# Journal of Global Optimization, 50(3), p. 397-416.
+# https://doi.org/10.1007/s10898-010-9588-7
+#
 # Solve:
 # min f(x) = [(x - a[1])^T (x - a[1])
 #             (x - a[2])^T (x - a[2])
@@ -29,41 +37,36 @@ from matplotlib import pyplot as plt
 # with a[1] = (1, 1)^T
 #      a[2] = (2, 3)^T
 #      a[3] = (4, 2)^T
-x = mocp.Variable(2)
 
 # Parameters
 a = np.array([[1, 1], [2, 3], [4, 2]])
 
+# Create problem
+x = mocp.Variable(2)
 objectives = [
     cp.Minimize(cp.sum_squares(x - a[0])),
     cp.Minimize(cp.sum_squares(x - a[1])),
     cp.Minimize(cp.sum_squares(x - a[2])),
 ]
 constraints = [x >= 0, x <= [10, 4], x[0] + 2 * x[1] <= 10]
-
 pb = mocp.Problem(objectives, constraints)
 
-objective_values = pb.solve(
-    solver="MONMO", scalarization_solver_options={"solver": cp.MOSEK}
-)
-print("status: ", pb.status)
-
+# Solve problem with MOVS algorithm
 objective_values = pb.solve(
     solver="MOVS",
-    scalarization_solver_options={"solver": cp.MOSEK},
-    vertex_selection_solver_options={"solver": cp.GUROBI},
+    scalarization_solver_options={"solver": cp.CLARABEL},
+    vertex_selection_solver_options={"solver": cp.CLARABEL},
 )
 print("status: ", pb.status)
 
-objective_values = pb.solve(
-    solver="ADENA", scalarization_solver_options={"solver": cp.MOSEK}
-)
-print("status: ", pb.status)
-
+# Plot solutions in the objective space
 ax = plt.figure().add_subplot(projection="3d")
 ax.scatter(
     [vertex[0] for vertex in objective_values],
     [vertex[1] for vertex in objective_values],
     [vertex[2] for vertex in objective_values],
 )
+ax.set_xlabel("$f_1$")
+ax.set_ylabel("$f_2$")
+ax.set_zlabel("$f_3$")
 plt.show()

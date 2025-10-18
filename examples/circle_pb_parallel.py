@@ -20,29 +20,41 @@ import mocvxpy as mocp
 from dask.distributed import Client
 from matplotlib import pyplot as plt
 
+# Example 5.1 taken from
+#
+# Ehrgott, M., Shao, L., & Schöbel, A. (2011).
+# An approximation algorithm for convex multi-objective programming problems.
+# Journal of Global Optimization, 50(3), p. 397-416.
+# https://doi.org/10.1007/s10898-010-9588-7
+#
 # Solve:
 # min f(x) = [x1, x2]
 # s.t. (x1 - 1)**2 + (x2 - 1)**2 <= 1
 #      x1, x2 >= 0
 if __name__ == "__main__":
+    # Create problem
     n = 2
-
     x = mocp.Variable(n)
-
     objectives = [cp.Minimize(x[0]), cp.Minimize(x[1])]
     constraints = [x >= 0, cp.sum_squares(x - 1) <= 1]
-
     pb = mocp.Problem(objectives, constraints)
 
+    # Create a Client instance: must be initialized into a function
+    # Solve problem with MONMO algorithm
     client = Client()
     objective_values = pb.solve(
-        client=client, solver="MONMO", scalarization_solver_options={"solver": cp.MOSEK}
+        client=client,
+        solver="MONMO",
+        scalarization_solver_options={"solver": cp.CLARABEL},
     )
     print("status: ", pb.status)
 
+    # Plot solutions in the objective space
     ax = plt.figure().add_subplot()
     ax.scatter(
         [vertex[0] for vertex in objective_values],
         [vertex[1] for vertex in objective_values],
     )
+    plt.xlabel("$f_1$")
+    plt.ylabel("$f_2$")
     plt.show()

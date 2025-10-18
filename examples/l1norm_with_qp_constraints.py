@@ -20,15 +20,22 @@ import mocvxpy as mocp
 
 from matplotlib import pyplot as plt
 
+# Example 6.1 taken from
+#
+# Ehrgott, M., Shao, L., & Schöbel, A. (2011).
+# An approximation algorithm for convex multi-objective programming problems.
+# Journal of Global Optimization, 50(3), 397-416.
+# https://doi.org/10.1007/s10898-010-9588-7
+#
 # Solve:
 # min f(x) = [|x1| + |x2|,
 #             |x1 - 2| + |x2|]
 # s.t. x1^2 + x2^2 <= 100
-x = mocp.Variable(2)
 
+# Create problem
+x = mocp.Variable(2)
 objectives = [cp.Minimize(cp.norm(x, 1)), cp.Minimize(cp.norm(x - np.array([2, 0]), 1))]
 constraints = [cp.sum_squares(x) <= 100]
-
 pb = mocp.Problem(objectives, constraints)
 
 # NB: The Pareto front has a "flat" shape, algorithms
@@ -42,9 +49,12 @@ objective_values = pb.solve(
 )
 print("status: ", pb.status)
 
+# Plot solutions in the objective space
 ax = plt.figure().add_subplot()
 ax.scatter(
     [vertex[0] for vertex in objective_values],
     [vertex[1] for vertex in objective_values],
 )
+ax.set_xlabel("$f_1$")
+ax.set_ylabel("$f_2$")
 plt.show()
