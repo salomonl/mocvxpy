@@ -106,5 +106,15 @@ MOVS is the default.
 ## Citation
 
 If you find this work useful, please cite the following preprint
-
+```
+@misc{salomon2025mocvxpycvxpyextensionmultiobjective,
+      title={MOCVXPY: a CVXPY extension for multiobjective optimization},
+      author={Ludovic Salomon and Daniel Dörfler and Andreas Löhne},
+      year={2025},
+      eprint={2510.21010},
+      archivePrefix={arXiv},
+      primaryClass={math.OC},
+      url={https://arxiv.org/abs/2510.21010},
+}
+```
 and the article corresponding to the algorithm used in your application.
