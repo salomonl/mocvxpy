@@ -48,9 +48,9 @@ solution set.
 
 MOCVXPY has the following dependencies:
 - `Python` >= 3.12
-- `cvxpy` >= 1.7.0
-- `dask` >= 2025.7.0
-- `distributed` >= 2025.7.0
+- `cvxpy` >= 1.8.0
+- `dask` >= 2026.1.0
+- `distributed` >= 2026.1.0
 - `pycddlib` >= 3.0.2
 - `numpy` >= 2.3.0
 

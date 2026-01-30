@@ -25,9 +25,9 @@ classifiers=[
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "cvxpy>=1.7.0",
-    "dask>=2025.7.0",
-    "distributed>=2025.7.0",
+    "cvxpy>=1.8.0",
+    "dask>=2026.1.0",
+    "distributed>=2026.1.0",
     "numpy>=2.3.0",
     "ppprint>=0.1.0",
     "pycddlib>=3.0.2",
@@ -39,10 +39,10 @@ examples = [
     "pandas>=2.3.3",
 ]
 tests = [
-    "black>=25.1.0",
-    "pytest>=8.4.2",
+    "black>=26.1.0",
+    "pytest>=9.0",
 ]
 
 [build-system]
-requires = ["setuptools >= 77.0.3"]
+requires = ["setuptools >= 80.7.1"]
 build-backend = "setuptools.build_meta"
