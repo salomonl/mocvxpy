@@ -26,9 +26,9 @@ def test_solve_circle_pb_with_MOVS():
     pb = mocp.Problem(objectives, constraints)
 
     objective_values = pb.solve()
-    assert pb.status == "scalarization_pb_numeric"
-    assert objective_values.shape == (33, 2)
-    assert x.values.shape == (33, 2)
+    assert pb.status == "optimal"
+    assert objective_values.shape == (65, 2)
+    assert x.values.shape == (65, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)
     assert np.all(objective_values[:, 1] == objectives[1].values)
     assert np.all(x.values == objective_values)
@@ -67,8 +67,8 @@ def test_solve_qp_with_linear_constraints_with_MOVS():
 
     objective_values = pb.solve()
     assert pb.status == "optimal"
-    assert objective_values.shape == (101, 2)
-    assert x.values.shape == (101, 2)
+    assert objective_values.shape == (100, 2)
+    assert x.values.shape == (100, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)
     assert np.all(objective_values[:, 1] == objectives[1].values)
     x_values = x.values

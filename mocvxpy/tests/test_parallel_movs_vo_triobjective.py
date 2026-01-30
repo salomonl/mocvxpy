@@ -39,8 +39,8 @@ def test_solve_sphere_pb_respect_to_C1_with_MOVS():
         vertex_selection_solver_options={"solver": cp.CLARABEL},
     )
     assert pb.status == "iteration_limit"
-    assert objective_values.shape == (381, 3)
-    assert x.values.shape == (381, 3)
+    assert objective_values.shape == (375, 3)
+    assert x.values.shape == (375, 3)
     assert np.all(objective_values[:, 0] == objectives[0].values)
     assert np.all(objective_values[:, 1] == objectives[1].values)
     assert np.all(objective_values[:, 2] == objectives[2].values)

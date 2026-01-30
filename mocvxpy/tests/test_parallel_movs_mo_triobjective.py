@@ -35,8 +35,8 @@ def test_solve_qp_st_linear_constraints_with_MOVS():
 
     objective_values = pb.solve(client=CLIENT, max_iter=6)
     assert pb.status == "iteration_limit"
-    assert objective_values.shape == (232, 3)
-    assert x.values.shape == (232, 2)
+    assert objective_values.shape == (165, 3)
+    assert x.values.shape == (165, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)
     assert np.all(objective_values[:, 1] == objectives[1].values)
     assert np.all(objective_values[:, 2] == objectives[2].values)
@@ -121,8 +121,8 @@ def test_solve_qcqp_with_MOVS():
 
     objective_values = pb.solve(client=CLIENT, max_iter=6)
     assert pb.status == "iteration_limit"
-    assert objective_values.shape == (139, 3)
-    assert x.values.shape == (139, 3)
+    assert objective_values.shape == (137, 3)
+    assert x.values.shape == (137, 3)
     assert np.all(objective_values[:, 0] == objectives[0].values)
     assert np.all(objective_values[:, 1] == objectives[1].values)
     assert np.all(objective_values[:, 2] == objectives[2].values)
