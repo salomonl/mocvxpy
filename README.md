@@ -57,9 +57,10 @@ MOCVXPY has the following dependencies:
 Some of the examples require `Matplotlib`, one requires `Pandas`, and another requires the
 commercial solver `Mosek`. The library used for the tests is `pytest`.
 
-It is important to have a working installation of pycddlib. Its installation guide can be found at
-the following [link](https://pycddlib.readthedocs.io/en/stable/). The easiest way to install the
-library is to use `pip`. At the root of the project, type:
+It is important to have a working installation of `pycddlib`, the Python interface of the `cddlib`
+library. Its installation guide can be found at the following [link](https://pycddlib.readthedocs.io/en/stable/).
+
+The easiest way to install the MOCVXPY library is to use `pip`. At the root of the project, type:
 
 ``` sh
 python -m pip install -e .
