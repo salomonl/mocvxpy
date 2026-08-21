@@ -48,11 +48,11 @@ solution set.
 
 MOCVXPY has the following dependencies:
 - `Python` >= 3.12
-- `cvxpy` >= 1.8.0
+- `cvxpy` >= 1.9.0
 - `dask` >= 2026.1.0
 - `distributed` >= 2026.1.0
 - `pycddlib` >= 3.0.2
-- `numpy` >= 2.3.0
+- `numpy` >= 2.4.0
 
 Some of the examples require `Matplotlib`, one requires `Pandas`, and another requires the
 commercial solver `Mosek`. The library used for the tests is `pytest`.
