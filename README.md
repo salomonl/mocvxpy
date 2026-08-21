@@ -113,6 +113,27 @@ enter the following command at the root of the project:
 uv run pytest mocvxpy
 ```
 
+## Running the examples
+
+After installation, you can run the examples. At the root of the project, enter:
+
+``` sh
+python examples/example_name.py # or on Windows: python examples\example_name.py
+```
+
+Alternatively, if you use `uv`, at the root of the project, type:
+
+``` sh
+uv sync --extra examples
+```
+
+to upload the dependencies used to run the examples. Then, to run the examples,
+enter the following command at the root of the project:
+
+``` sh
+uv run python examples/example_name.py # or on Windows: uv run python examples\example_name.py
+```
+
 ## Contributing
 
 MOCVXPY is a young project, there are still some bugs lurking. If you find one, please report it on
