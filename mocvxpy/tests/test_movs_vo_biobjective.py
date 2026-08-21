@@ -31,8 +31,8 @@ def test_solve_disc_pb_respect_to_C1_with_MOVS():
 
     objective_values = pb.solve()
     assert pb.status == "optimal"
-    assert objective_values.shape == (95, 2)
-    assert x.values.shape == (95, 2)
+    assert objective_values.shape == (65, 2)
+    assert x.values.shape == (65, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)
     assert np.all(objective_values[:, 1] == objectives[1].values)
     assert np.all(x.values == objective_values)

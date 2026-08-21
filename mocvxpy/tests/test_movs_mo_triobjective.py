@@ -31,7 +31,10 @@ def test_solve_qp_st_linear_constraints_with_MOVS():
     constraints = [x >= 0, x <= [10, 4], x[0] + 2 * x[1] <= 10]
     pb = mocp.Problem(objectives, constraints)
 
-    objective_values = pb.solve()
+    # NB: Stop before with default options
+    objective_values = pb.solve(
+        solver="MOVS", vertex_selection_solver_options={"solver": cp.CLARABEL}
+    )
     assert pb.status == "iteration_limit"
     assert objective_values.shape == (103, 3)
     assert x.values.shape == (103, 2)
@@ -111,7 +114,8 @@ def test_solve_qcqp_with_MOVS():
     constraints = [x >= 0, x <= 10, cp.sum_squares(x) <= 1]
     pb = mocp.Problem(objectives, constraints)
 
-    objective_values = pb.solve()
+    # NB: Stop before with default options
+    objective_values = pb.solve(vertex_selection_solver_options={"solver": cp.CLARABEL})
     assert pb.status == "iteration_limit"
     assert objective_values.shape == (103, 3)
     assert x.values.shape == (103, 3)

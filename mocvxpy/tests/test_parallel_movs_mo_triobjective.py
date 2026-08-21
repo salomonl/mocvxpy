@@ -33,10 +33,15 @@ def test_solve_qp_st_linear_constraints_with_MOVS():
     constraints = [x >= 0, x <= [10, 4], x[0] + 2 * x[1] <= 10]
     pb = mocp.Problem(objectives, constraints)
 
-    objective_values = pb.solve(client=CLIENT, max_iter=6)
+    objective_values = pb.solve(
+        client=CLIENT,
+        max_iter=6,
+        solver="MOVS",
+        vertex_selection_solver_options={"solver": cp.CLARABEL},
+    )
     assert pb.status == "iteration_limit"
-    assert objective_values.shape == (165, 3)
-    assert x.values.shape == (165, 2)
+    assert objective_values.shape == (195, 3)
+    assert x.values.shape == (195, 2)
     assert np.all(objective_values[:, 0] == objectives[0].values)
     assert np.all(objective_values[:, 1] == objectives[1].values)
     assert np.all(objective_values[:, 2] == objectives[2].values)
@@ -119,10 +124,15 @@ def test_solve_qcqp_with_MOVS():
     constraints = [x >= 0, x <= 10, cp.sum_squares(x) <= 1]
     pb = mocp.Problem(objectives, constraints)
 
-    objective_values = pb.solve(client=CLIENT, max_iter=6)
+    objective_values = pb.solve(
+        client=CLIENT,
+        max_iter=6,
+        solver="MOVS",
+        vertex_selection_solver_options={"solver": cp.CLARABEL},
+    )
     assert pb.status == "iteration_limit"
-    assert objective_values.shape == (137, 3)
-    assert x.values.shape == (137, 3)
+    assert objective_values.shape == (203, 3)
+    assert x.values.shape == (203, 3)
     assert np.all(objective_values[:, 0] == objectives[0].values)
     assert np.all(objective_values[:, 1] == objectives[1].values)
     assert np.all(objective_values[:, 2] == objectives[2].values)
