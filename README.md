@@ -66,6 +66,29 @@ The easiest way to install the MOCVXPY library is to use `pip`. At the root of t
 python -m pip install -e .
 ```
 
+Alternatively, one can use the [uv](https://docs.astral.sh/uv/) Python package and project manager.
+After [installing](https://docs.astral.sh/uv/getting-started/installation/) it, at the root of the project, type:
+
+``` sh
+uv sync
+source .venv/activate/ # or on Windows: .\venv\Scripts\activate
+```
+
+To ensure that it is working properly, start a Python REPL at the root of the project.
+
+``` sh
+python
+```
+
+Then, enter the following instructions:
+
+``` python
+import mocvxpy as mocp
+print("mocvxpy version: ", mocp.__version__)
+```
+
+It should return the current version of MOCVXPY.
+
 MOCVXPY should be available on the `PyPy` platform soon.
 
 ## Testing
@@ -75,6 +98,19 @@ You need `pytest` for that.
 
 ``` sh
 pytest mocvxpy
+```
+
+Alternatively, if you use `uv`, at the root of the project, type:
+
+``` sh
+uv sync --extra tests
+```
+
+to upload the dependencies used to run the tests. Then, to run the tests,
+enter the following command at the root of the project:
+
+``` sh
+uv run pytest mocvxpy
 ```
 
 ## Contributing
